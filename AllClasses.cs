@@ -83,12 +83,12 @@ namespace AllClass
 
     public class Item
     {
-        public string Type;
-        public string PartNumber;
-        public string AssetNumber;
-        public string Status;
-        public Room AssignedRoom;
-        public Student OwningStudent;
+        public string Type { get; set; };
+        public string PartNumber { get; set; };
+        public string AssetNumber { get; set; };
+        public string Status { get; set; };
+        public Room AssignedRoom { get; set; };
+        public Student OwningStudent { get; set; };
 
         public Item(ItemType type, string partNumber, string assetNumber, ItemStatus status)
         {
