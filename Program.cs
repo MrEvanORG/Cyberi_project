@@ -322,7 +322,7 @@ namespace ConsoleProject
                     case "dormitory":
                         while (true)
                         {
-                            Console.Write("$ dormitory> ");
+                            Console.Write("$ main/dormitory> ");
                             var cmd = Console.ReadLine().Trim();
                             if (cmd == "exit") break;
 
@@ -357,7 +357,7 @@ namespace ConsoleProject
                     case "block":
                         while (true)
                         {
-                            Console.Write("$ block> ");
+                            Console.Write("$ main/block> ");
                             var cmd = Console.ReadLine().Trim();
                             if (cmd == "exit") break;
 
@@ -410,7 +410,7 @@ namespace ConsoleProject
                     case "room":
                         while (true)
                         {
-                            Console.Write("$ room> ");
+                            Console.Write("$ main/room> ");
                             var cmd = Console.ReadLine().Trim();
                             if (cmd == "exit") break;
 
