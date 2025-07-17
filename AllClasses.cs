@@ -2,21 +2,22 @@ using System;
 using System.Collections.Generic;
 using System.Data.SQLite;
 using System.IO;
+using System.Linq;
 
 namespace DormitorySystem
 {
     public static class Database
     {
         private static bool initialized = false;
+        private const string DbName = "DormitorySystem.db";
 
         public static SQLiteConnection GetConnection()
         {
-            bool needInit = !File.Exists("DormSystem.db");
-
-            var conn = new SQLiteConnection("Data Source=DormSystem.db;Version=3;");
+            bool dbExists = File.Exists(DbName);
+            var conn = new SQLiteConnection($"Data Source={DbName};Version=3;");
             conn.Open();
 
-            if (needInit && !initialized)
+            if (!dbExists && !initialized)
             {
                 InitializeDatabase(conn);
                 initialized = true;
@@ -29,8 +30,8 @@ namespace DormitorySystem
         {
             string[] queries = {
                 @"CREATE TABLE IF NOT EXISTS Persons (
-                    FirstName TEXT,
-                    LastName TEXT,
+                    FirstName TEXT NOT NULL,
+                    LastName TEXT NOT NULL,
                     NationalCode TEXT PRIMARY KEY,
                     Address TEXT,
                     Phone TEXT
@@ -38,38 +39,40 @@ namespace DormitorySystem
 
                 @"CREATE TABLE IF NOT EXISTS Students (
                     StudentCode TEXT PRIMARY KEY,
-                    NationalCode TEXT,
-                    DormitoryName TEXT,
-                    BlockName TEXT,
-                    RoomNumber TEXT
+                    NationalCode TEXT NOT NULL UNIQUE,
+                    DormitoryName TEXT NOT NULL,
+                    BlockName TEXT NOT NULL,
+                    RoomNumber TEXT NOT NULL
                 );",
 
                 @"CREATE TABLE IF NOT EXISTS Dormitories (
                     Name TEXT PRIMARY KEY,
-                    Capacity INTEGER,
                     Address TEXT,
                     SupervisorCode TEXT
                 );",
 
                 @"CREATE TABLE IF NOT EXISTS Blocks (
                     Name TEXT PRIMARY KEY,
-                    Floors INTEGER,
-                    DormitoryName TEXT,
-                    SupervisorStudentCode TEXT
+                    Floors INTEGER NOT NULL,
+                    Capacity INTEGER NOT NULL,
+                    DormitoryName TEXT NOT NULL
                 );",
 
                 @"CREATE TABLE IF NOT EXISTS Rooms (
-                    RoomNumber TEXT PRIMARY KEY,
-                    Floor INTEGER,
-                    Capacity INTEGER,
-                    BlockName TEXT
+                    RoomNumber TEXT NOT NULL,
+                    Floor INTEGER NOT NULL,
+                    Capacity INTEGER NOT NULL,
+                    BlockName TEXT NOT NULL,
+                    PRIMARY KEY (RoomNumber, BlockName)
                 );"
             };
 
             foreach (var query in queries)
             {
-                var cmd = new SQLiteCommand(query, conn);
-                cmd.ExecuteNonQuery();
+                using (var cmd = new SQLiteCommand(query, conn))
+                {
+                    cmd.ExecuteNonQuery();
+                }
             }
 
             Console.WriteLine("Database initialized successfully.");
@@ -78,29 +81,11 @@ namespace DormitorySystem
 
     public class Person
     {
-        public string FirstName;
-        public string LastName;
-        public string NationalCode;
-        public string Address;
-        public string Phone;
-
-        public Person(string nationalCode)
-        {
-            using (var conn = Database.GetConnection())
-            {
-                var cmd = new SQLiteCommand("SELECT * FROM Persons WHERE NationalCode = @code", conn);
-                cmd.Parameters.AddWithValue("@code", nationalCode);
-                var reader = cmd.ExecuteReader();
-                if (reader.Read())
-                {
-                    FirstName = reader["FirstName"].ToString();
-                    LastName = reader["LastName"].ToString();
-                    NationalCode = reader["NationalCode"].ToString();
-                    Address = reader["Address"].ToString();
-                    Phone = reader["Phone"].ToString();
-                }
-            }
-        }
+        public string FirstName { get; set; }
+        public string LastName { get; set; }
+        public string NationalCode { get; set; }
+        public string Address { get; set; }
+        public string Phone { get; set; }
 
         public Person(string firstName, string lastName, string nationalCode, string address, string phone)
         {
@@ -128,7 +113,7 @@ namespace DormitorySystem
 
     public class PersonManager
     {
-        public List<Person> People = new();
+        public List<Person> People { get; private set; } = new List<Person>();
 
         public void LoadAll()
         {
@@ -136,74 +121,36 @@ namespace DormitorySystem
             using (var conn = Database.GetConnection())
             {
                 var cmd = new SQLiteCommand("SELECT * FROM Persons", conn);
-                var reader = cmd.ExecuteReader();
-                while (reader.Read())
+                using (var reader = cmd.ExecuteReader())
                 {
-                    People.Add(new Person(
-                        reader["FirstName"].ToString(),
-                        reader["LastName"].ToString(),
-                        reader["NationalCode"].ToString(),
-                        reader["Address"].ToString(),
-                        reader["Phone"].ToString()
-                    ));
+                    while (reader.Read())
+                    {
+                        People.Add(new Person(
+                            reader["FirstName"].ToString(),
+                            reader["LastName"].ToString(),
+                            reader["NationalCode"].ToString(),
+                            reader["Address"].ToString(),
+                            reader["Phone"].ToString()
+                        ));
+                    }
                 }
             }
         }
 
-
-
-
-        public Person GetOrCreatePersonInteractive(string nationalCode)
+        public void Add(Person person)
         {
-            var found = People.Find(p => p.NationalCode == nationalCode);
-            if (found != null)
-            {
-                Console.WriteLine("Person found.");
-                return found;
-            }
-
-            Console.WriteLine("Person not found. Please enter details.");
-            Console.Write("First Name: ");
-            string fname = Console.ReadLine();
-            Console.Write("Last Name: ");
-            string lname = Console.ReadLine();
-            Console.Write("Address: ");
-            string addr = Console.ReadLine();
-            Console.Write("Phone: ");
-            string phone = Console.ReadLine();
-
-            var newPerson = new Person(fname, lname, nationalCode, addr, phone);
-            newPerson.Save();
-            People.Add(newPerson);
-            return newPerson;
+            person.Save();
+            People.Add(person);
         }
     }
 
     public class Student
     {
-        public string StudentCode;
-        public string NationalCode;
-        public string DormitoryName;
-        public string BlockName;
-        public string RoomNumber;
-
-        public Student(string code)
-        {
-            using (var conn = Database.GetConnection())
-            {
-                var cmd = new SQLiteCommand("SELECT * FROM Students WHERE StudentCode = @code", conn);
-                cmd.Parameters.AddWithValue("@code", code);
-                var reader = cmd.ExecuteReader();
-                if (reader.Read())
-                {
-                    StudentCode = code;
-                    NationalCode = reader["NationalCode"].ToString();
-                    DormitoryName = reader["DormitoryName"].ToString();
-                    BlockName = reader["BlockName"].ToString();
-                    RoomNumber = reader["RoomNumber"].ToString();
-                }
-            }
-        }
+        public string StudentCode { get; set; }
+        public string NationalCode { get; set; }
+        public string DormitoryName { get; set; }
+        public string BlockName { get; set; }
+        public string RoomNumber { get; set; }
 
         public Student(string studentCode, string nationalCode, string dorm, string block, string room)
         {
@@ -228,9 +175,10 @@ namespace DormitorySystem
             }
         }
     }
+
     public class StudentManager
     {
-        public List<Student> Students = new();
+        public List<Student> Students { get; private set; } = new List<Student>();
 
         public void LoadAll()
         {
@@ -238,48 +186,38 @@ namespace DormitorySystem
             using (var conn = Database.GetConnection())
             {
                 var cmd = new SQLiteCommand("SELECT * FROM Students", conn);
-                var reader = cmd.ExecuteReader();
-                while (reader.Read())
+                using (var reader = cmd.ExecuteReader())
                 {
-                    Students.Add(new Student(
-                        reader["StudentCode"].ToString(),
-                        reader["NationalCode"].ToString(),
-                        reader["DormitoryName"].ToString(),
-                        reader["BlockName"].ToString(),
-                        reader["RoomNumber"].ToString()
-                    ));
+                    while (reader.Read())
+                    {
+                        Students.Add(new Student(
+                            reader["StudentCode"].ToString(),
+                            reader["NationalCode"].ToString(),
+                            reader["DormitoryName"].ToString(),
+                            reader["BlockName"].ToString(),
+                            reader["RoomNumber"].ToString()
+                        ));
+                    }
                 }
             }
         }
-
 
         public void Add(Student student)
         {
             student.Save();
             Students.Add(student);
         }
-
-
-        public void List()
-        {
-            foreach (var s in Students)
-            {
-                Console.WriteLine($"StudentCode: {s.StudentCode}, NationalCode: {s.NationalCode}, Dorm: {s.DormitoryName}, Block: {s.BlockName}, Room: {s.RoomNumber}");
-            }
-        }
     }
 
     public class Dormitory
     {
-        public string Name;
-        public int Capacity;
-        public string Address;
-        public string SupervisorCode;
+        public string Name { get; set; }
+        public string Address { get; set; }
+        public string SupervisorCode { get; set; }
 
         public Dormitory(string name, int capacity, string address, string supervisorCode)
         {
             Name = name;
-            Capacity = capacity;
             Address = address;
             SupervisorCode = supervisorCode;
         }
@@ -288,9 +226,8 @@ namespace DormitorySystem
         {
             using (var conn = Database.GetConnection())
             {
-                var cmd = new SQLiteCommand("REPLACE INTO Dormitories (Name, Capacity, Address, SupervisorCode) VALUES (@n, @c, @a, @s)", conn);
+                var cmd = new SQLiteCommand("REPLACE INTO Dormitories (Name, Address, SupervisorCode) VALUES (@n, @a, @s)", conn);
                 cmd.Parameters.AddWithValue("@n", Name);
-                cmd.Parameters.AddWithValue("@c", Capacity);
                 cmd.Parameters.AddWithValue("@a", Address);
                 cmd.Parameters.AddWithValue("@s", SupervisorCode);
                 cmd.ExecuteNonQuery();
@@ -300,12 +237,12 @@ namespace DormitorySystem
 
     public class DormitoryManager
     {
-        public List<Dormitory> Dorms = new();
-        private PersonManager personManager;
+        public List<Dormitory> Dorms { get; private set; } = new List<Dormitory>();
+        private readonly PersonManager _personManager;
 
         public DormitoryManager(PersonManager pm)
         {
-            personManager = pm;
+            _personManager = pm;
         }
 
         public void LoadAll()
@@ -314,22 +251,24 @@ namespace DormitorySystem
             using (var conn = Database.GetConnection())
             {
                 var cmd = new SQLiteCommand("SELECT * FROM Dormitories", conn);
-                var reader = cmd.ExecuteReader();
-                while (reader.Read())
+                using (var reader = cmd.ExecuteReader())
                 {
-                    Dorms.Add(new Dormitory(
-                        reader["Name"].ToString(),
-                        int.Parse(reader["Capacity"].ToString()),
-                        reader["Address"].ToString(),
-                        reader["SupervisorCode"].ToString()
-                    ));
+                    while (reader.Read())
+                    {
+                        Dorms.Add(new Dormitory(
+                            reader["Name"].ToString(),
+                            0, 
+                            reader["Address"].ToString(),
+                            reader["SupervisorCode"].ToString()
+                        ));
+                    }
                 }
             }
         }
 
         public void Add(Dormitory dorm)
         {
-            if (!personManager.People.Exists(p => p.NationalCode == dorm.SupervisorCode))
+            if (!_personManager.People.Exists(p => p.NationalCode == dorm.SupervisorCode))
             {
                 Console.WriteLine("Error: Supervisor must be a registered person.");
                 return;
@@ -338,26 +277,27 @@ namespace DormitorySystem
             Dorms.Add(dorm);
         }
 
-
         public void List()
         {
             foreach (var d in Dorms)
             {
-                Console.WriteLine($"Dorm: {d.Name}, Capacity: {d.Capacity}, Address: {d.Address}, Supervisor: {d.SupervisorCode}");
+                Console.WriteLine($"- Name: {d.Name}, Address: {d.Address}, Supervisor Code: {d.SupervisorCode}");
             }
         }
     }
+
     public class Block
     {
-        public string Name;
-        public int Floors;
-        public string DormitoryName;
-        public string SupervisorStudentCode;
+        public string Name { get; set; }
+        public int Floors { get; set; }
+        public int Capacity { get; set; }
+        public string DormitoryName { get; set; }
 
-        public Block(string name, int floors, string dormitoryName)
+        public Block(string name, int floors, int capacity, string dormitoryName)
         {
             Name = name;
             Floors = floors;
+            Capacity = capacity;
             DormitoryName = dormitoryName;
         }
 
@@ -365,11 +305,11 @@ namespace DormitorySystem
         {
             using (var conn = Database.GetConnection())
             {
-                var cmd = new SQLiteCommand("REPLACE INTO Blocks (Name, Floors, DormitoryName, SupervisorStudentCode) VALUES (@n, @f, @d, @s)", conn);
+                var cmd = new SQLiteCommand("REPLACE INTO Blocks (Name, Floors, Capacity, DormitoryName) VALUES (@n, @f, @c, @d)", conn);
                 cmd.Parameters.AddWithValue("@n", Name);
                 cmd.Parameters.AddWithValue("@f", Floors);
+                cmd.Parameters.AddWithValue("@c", Capacity);
                 cmd.Parameters.AddWithValue("@d", DormitoryName);
-                cmd.Parameters.AddWithValue("@s", SupervisorStudentCode);
                 cmd.ExecuteNonQuery();
             }
         }
@@ -377,7 +317,7 @@ namespace DormitorySystem
 
     public class BlockManager
     {
-        public List<Block> Blocks = new();
+        public List<Block> Blocks { get; private set; } = new List<Block>();
 
         public void LoadAll()
         {
@@ -385,44 +325,95 @@ namespace DormitorySystem
             using (var conn = Database.GetConnection())
             {
                 var cmd = new SQLiteCommand("SELECT * FROM Blocks", conn);
-                var reader = cmd.ExecuteReader();
-                while (reader.Read())
+                using (var reader = cmd.ExecuteReader())
                 {
-                    Blocks.Add(new Block(
-                        reader["Name"].ToString(),
-                        int.Parse(reader["Floors"].ToString()),
-                        reader["DormitoryName"].ToString()
-                    )
+                    while (reader.Read())
                     {
-                        SupervisorStudentCode = reader["SupervisorStudentCode"].ToString()
-                    });
+                        Blocks.Add(new Block(
+                            reader["Name"].ToString(),
+                            Convert.ToInt32(reader["Floors"]),
+                            Convert.ToInt32(reader["Capacity"]),
+                            reader["DormitoryName"].ToString()
+                        ));
+                    }
                 }
             }
         }
 
-        public void Add(Block block)
+        public void Add(Block block, RoomManager roomManager)
         {
             block.Save();
             Blocks.Add(block);
+
+            const int roomCapacity = 6;
+            int capacityPerFloor = block.Capacity / block.Floors;
+            int roomsPerFloor = capacityPerFloor / roomCapacity;
+
+            if (roomsPerFloor == 0)
+            {
+                Console.WriteLine("Warning: Block capacity is too low to create any rooms on each floor.");
+                return;
+            }
+
+            for (int floor = 1; floor <= block.Floors; floor++)
+            {
+                for (int roomIndex = 1; roomIndex <= roomsPerFloor; roomIndex++)
+                {
+                    string roomNumber = ((floor * 100) + roomIndex).ToString();
+                    Room newRoom = new Room(roomNumber, floor, roomCapacity, block.Name);
+                    roomManager.Add(newRoom);
+                }
+            }
+            Console.WriteLine($"{roomsPerFloor * block.Floors} rooms were created for block '{block.Name}'.");
         }
 
-
-
-        public void List()
+        public void List(RoomManager roomManager)
         {
+            Console.WriteLine("--- List of All Blocks ---");
+            if (!Blocks.Any())
+            {
+                Console.WriteLine("No blocks found.");
+                return;
+            }
+
             foreach (var b in Blocks)
             {
-                Console.WriteLine($"Block: {b.Name}, Floors: {b.Floors}, Dormitory: {b.DormitoryName}, Supervisor: {b.SupervisorStudentCode}");
+                Console.WriteLine($"\n- Block Name: {b.Name}, Dormitory: {b.DormitoryName}, Floors: {b.Floors}, Capacity: {b.Capacity}");
+
+                var roomsInBlock = roomManager.Rooms
+                    .Where(r => r.BlockName.Equals(b.Name, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+
+                if (!roomsInBlock.Any())
+                {
+                    Console.WriteLine("  (No rooms found for this block)");
+                    continue;
+                }
+
+                var roomsByFloor = roomsInBlock
+                    .GroupBy(r => r.Floor)
+                    .OrderBy(g => g.Key);
+
+                Console.WriteLine("  Room Ranges:");
+                foreach (var floorGroup in roomsByFloor)
+                {
+                    var roomNumbers = floorGroup.Select(r => int.Parse(r.RoomNumber)).OrderBy(n => n).ToList();
+                    if (roomNumbers.Any())
+                    {
+                        Console.WriteLine($"    Floor {floorGroup.Key}: From {roomNumbers.First()} to {roomNumbers.Last()}");
+                    }
+                }
             }
+            Console.WriteLine("\n--- End of List ---");
         }
     }
 
     public class Room
     {
-        public string RoomNumber;
-        public int Floor;
-        public int Capacity;
-        public string BlockName;
+        public string RoomNumber { get; set; }
+        public int Floor { get; set; }
+        public int Capacity { get; set; }
+        public string BlockName { get; set; }
 
         public Room(string roomNumber, int floor, int capacity, string blockName)
         {
@@ -448,7 +439,7 @@ namespace DormitorySystem
 
     public class RoomManager
     {
-        public List<Room> Rooms = new();
+        public List<Room> Rooms { get; private set; } = new List<Room>();
 
         public void LoadAll()
         {
@@ -456,25 +447,30 @@ namespace DormitorySystem
             using (var conn = Database.GetConnection())
             {
                 var cmd = new SQLiteCommand("SELECT * FROM Rooms", conn);
-                var reader = cmd.ExecuteReader();
-                while (reader.Read())
+                using (var reader = cmd.ExecuteReader())
                 {
-                    Rooms.Add(new Room(
-                        reader["RoomNumber"].ToString(),
-                        int.Parse(reader["Floor"].ToString()),
-                        int.Parse(reader["Capacity"].ToString()),
-                        reader["BlockName"].ToString()
-                    ));
+                    while (reader.Read())
+                    {
+                        Rooms.Add(new Room(
+                            reader["RoomNumber"].ToString(),
+                            Convert.ToInt32(reader["Floor"]),
+                            Convert.ToInt32(reader["Capacity"]),
+                            reader["BlockName"].ToString()
+                        ));
+                    }
                 }
             }
         }
 
         public void Add(Room room)
         {
+            if (Rooms.Exists(r => r.RoomNumber == room.RoomNumber && r.BlockName == room.BlockName))
+            {
+                return; 
+            }
             room.Save();
             Rooms.Add(room);
         }
-
 
         public void List()
         {
