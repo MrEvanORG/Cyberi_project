@@ -172,6 +172,7 @@ namespace ConsoleProject
 
                             switch (command)
                             {
+
                                 case "add":
                                     Console.Write("Add person or student? (person/student): ");
                                     var kind = Console.ReadLine().Trim().ToLower();
@@ -312,8 +313,11 @@ namespace ConsoleProject
                                 case "edit":
                                     Console.Write("Not ready yet! ");
                                     break;
+                                case "help":
+                                    ShowHelp("help person");
+                                    break;
                                 default:
-                                    Console.WriteLine("Invalid command. Use 'add', 'list', 'rem', 'edit' or 'exit'.");
+                                    Console.WriteLine("Invalid command. Use 'add','list','rem','edit','exit','help'.");
                                     break;
                             }
                         }
@@ -322,7 +326,7 @@ namespace ConsoleProject
                     case "dormitory":
                         while (true)
                         {
-                            Console.Write("$ main/dormitory> ");
+                            Console.Write("$ dormitory> ");
                             var cmd = Console.ReadLine().Trim();
                             if (cmd == "exit") break;
 
@@ -350,6 +354,12 @@ namespace ConsoleProject
                                 case "list":
                                     dormManager.List();
                                     break;
+                                case "help":
+                                    ShowHelp("help dormitory");
+                                    break;
+                                default:
+                                        Console.WriteLine("Invalid command. Use 'add','list','rem','edit','exit','help'.");
+                                break;
                             }
                         }
                         break;
@@ -357,7 +367,7 @@ namespace ConsoleProject
                     case "block":
                         while (true)
                         {
-                            Console.Write("$ main/block> ");
+                            Console.Write("$ block> ");
                             var cmd = Console.ReadLine().Trim();
                             if (cmd == "exit") break;
 
@@ -403,6 +413,12 @@ namespace ConsoleProject
                                 case "list":
                                     blockManager.List();
                                     break;
+                                case "help":
+                                    ShowHelp("help block");
+                                    break;
+                                default:
+                                    Console.WriteLine("Invalid command. Use 'add','list','rem','edit','exit','help'.");
+                                    break;
                             }
                         }
                         break;
@@ -410,7 +426,7 @@ namespace ConsoleProject
                     case "room":
                         while (true)
                         {
-                            Console.Write("$ main/room> ");
+                            Console.Write("$ room> ");
                             var cmd = Console.ReadLine().Trim();
                             if (cmd == "exit") break;
 
@@ -457,6 +473,12 @@ namespace ConsoleProject
                                 case "list":
                                     roomManager.List();
                                     break;
+                                case "help":
+                                    ShowHelp("help room");
+                                    break;
+                                default:
+                                    Console.WriteLine("Invalid command. Use 'add','list','rem','edit','exit','help'.");
+                                    break;
                             }
                         }
                         break;
@@ -465,3 +487,4 @@ namespace ConsoleProject
         }
     }
 }
+//
