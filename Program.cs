@@ -6,13 +6,388 @@ namespace ConsoleProject
 {
     class Program
     {
+        static void ShowHelp(string command)
+        {
+            string text = "";
+            var parts = command.Split();
+
+            if (parts.Length == 1) 
+            {
+                text = """
+
+                    Program commands : 
+                    For more information on a specific command, type HELP command-name 
+                        | exit         to exit the program.                             |
+                        | dormitory    show all commands related to dormitories.        |
+                        | block        show all commands related to blocks of a dormitory.|
+                        | person       show all commands related to people and students.  |
+                        | item         show all commands related to student items.      |
+                    example : help item
+
+                    """;
+            }
+            else if (parts.Length == 2)
+            {
+                switch (parts[1])
+                {
+                    default:
+                        text = "Sorry, there is no such subject to show help for!";
+                        break;
+                    case "dormitory":
+                        text = """
+
+                            Dormitory commands : 
+                                | exit        back to main menu.                                     |
+                                | list        show list of all dormitories.                          |
+                                | add         add a new dormitory to the program.                      |
+                                | rem [name]  remove a dormitory and all its related blocks/students.|
+
+                            """;
+                        break;
+                    case "block":
+                        text = """
+
+                            Block commands : 
+                                | exit        back to main menu.                                       |
+                                | list        show list of all blocks and their room ranges.           |
+                                | add         add a new block and its rooms automatically.             |
+                                | rem [name]  remove a block and all its related rooms/students.       |
+
+                            """;
+                        break;
+                    case "person":
+                        text = """
+
+                            Person commands : 
+                                | exit        back to main menu.                                         |
+                                | list        show list of all people or students.                     |
+                                | add         add a new person or student.                             |
+                                | rem         remove a person (and their student record) or just a student. |
+
+                            """;
+                        break;
+                    case "item":
+                        text = """
+
+                            Item commands : 
+                                | exit              back to main menu.                  |
+                                | list              show list of all items.             |
+                                | add               add a new item for a student.       |
+                                | rem [partNumber]  remove an item by its part number.  |
+
+                            """;
+                        break;
+                }
+            }
+            else
+            {
+                text = "Invalid help usage.";
+            }
+
+            Console.WriteLine(text);
+        }
+
+        static void Main(string[] args)
+        {
+            Database.GetConnection().Close();
+
+            var personManager = new PersonManager();
+            var studentManager = new StudentManager();
+            var itemManager = new PersonItemManager();
+            var roomManager = new RoomManager();
+            var blockManager = new BlockManager();
+            var dormManager = new DormitoryManager();
+
+            personManager.LoadAll();
+            studentManager.LoadAll();
+            itemManager.LoadAll();
+            roomManager.LoadAll();
+            blockManager.LoadAll();
+            dormManager.LoadAll();
+
+            Console.WriteLine("--- Dormitory Management System ---");
+            ShowHelp("help");
+
+            while (true)
+            {
+                Console.Write("$ main> ");
+                var input = Console.ReadLine()?.Trim().ToLower();
+                if (input == "exit") break;
+
+                var cmdParts = input.Split(' ');
+                var command = cmdParts[0];
+
+                switch (command)
+                {
+                    case "person":
+                        HandlePersonMenu(personManager, studentManager, itemManager, dormManager, blockManager, roomManager);
+                        break;
+
+                    case "dormitory":
+                        HandleDormitoryMenu(dormManager, blockManager, roomManager, studentManager, itemManager, personManager);
+                        break;
+
+                    case "block":
+                        HandleBlockMenu(blockManager, dormManager, roomManager, studentManager, itemManager);
+                        break;
+
+                    case "item":
+                        HandleItemMenu(itemManager, studentManager);
+                        break;
+
+                    case "help":
+                        ShowHelp(input);
+                        break;
+
+                    default:
+                        Console.WriteLine("Invalid command. Type 'help' to see available commands.");
+                        break;
+                }
+            }
+        }
+
+        #region Menu Handlers
+
+        static void HandleItemMenu(PersonItemManager itemManager, StudentManager studentManager)
+        {
+            while (true)
+            {
+                Console.Write("$ main/item> ");
+                var input = Console.ReadLine()?.Trim().ToLower();
+                if (input == "exit") break;
+
+                var cmdParts = input.Split(' ');
+                var command = cmdParts[0];
+
+                switch (command)
+                {
+                    case "add":
+                        AddItem(itemManager, studentManager);
+                        break;
+
+                    case "list":
+                        itemManager.List(studentManager);
+                        break;
+
+                    case "rem":
+                        if (cmdParts.Length < 2)
+                        {
+                            Console.WriteLine("Usage: rem [partNumber]");
+                            break;
+                        }
+                        itemManager.Remove(cmdParts[1]);
+                        break;
+
+                    case "help":
+                        ShowHelp("help item");
+                        break;
+
+                    default:
+                        Console.WriteLine("Invalid command. Use 'add', 'list', 'rem', 'help' or 'exit'.");
+                        break;
+                }
+            }
+        }
+
+        static void HandlePersonMenu(PersonManager personManager, StudentManager studentManager, PersonItemManager itemManager, DormitoryManager dormManager, BlockManager blockManager, RoomManager roomManager)
+        {
+            while (true)
+            {
+                Console.Write("$ main/person> ");
+                var input = Console.ReadLine()?.Trim().ToLower();
+                if (input == "exit") break;
+
+                var cmdParts = input.Split(' ');
+                var command = cmdParts[0];
+
+                switch (command)
+                {
+                    case "add":
+                        Console.Write("Add a new person or student? (person/student): ");
+                        var kind = Console.ReadLine()?.Trim().ToLower();
+
+                        if (kind == "person")
+                        {
+                            AddPerson(personManager);
+                        }
+                        else if (kind == "student")
+                        {
+                            AddStudent(personManager, studentManager, dormManager, blockManager, roomManager);
+                        }
+                        else
+                        {
+                            Console.WriteLine("Invalid type. Please choose 'person' or 'student'.");
+                        }
+                        break;
+
+                    case "list":
+                        ListPeopleAndStudents(personManager, studentManager);
+                        break;
+
+                    case "rem":
+                        Console.Write("Remove a 'person' (including student record) or just a 'student'? (person/student): ");
+                        var remType = Console.ReadLine()?.Trim().ToLower();
+                        if (remType == "person")
+                        {
+                            Console.Write("Enter National Code of the person to remove: ");
+                            var nationalCode = Console.ReadLine();
+                            personManager.Remove(nationalCode, studentManager, itemManager);
+                        }
+                        else if (remType == "student")
+                        {
+                            Console.Write("Enter Student Code of the student to remove: ");
+                            var studentCode = Console.ReadLine();
+                            studentManager.Remove(studentCode, itemManager);
+                        }
+                        else
+                        {
+                            Console.WriteLine("Invalid type.");
+                        }
+                        break;
+
+                    case "help":
+                        ShowHelp("help person");
+                        break;
+
+                    default:
+                        Console.WriteLine("Invalid command. Use 'add', 'list', 'rem', 'help' or 'exit'.");
+                        break;
+                }
+            }
+        }
+
+        static void HandleDormitoryMenu(DormitoryManager dormManager, BlockManager blockManager, RoomManager roomManager, StudentManager studentManager, PersonItemManager itemManager, PersonManager personManager)
+        {
+            while (true)
+            {
+                Console.Write("$ main/dormitory> ");
+                var input = Console.ReadLine()?.Trim().ToLower();
+                if (input == "exit") break;
+
+                var cmdParts = input.Split(' ');
+                var command = cmdParts[0];
+
+                switch (command)
+                {
+                    case "add":
+                        AddDormitory(dormManager, personManager);
+                        break;
+
+                    case "list":
+                        Console.WriteLine("--- List of All Dormitories ---");
+                        dormManager.List();
+                        Console.WriteLine("--- End of List ---");
+                        break;
+
+                    case "rem":
+                        if (cmdParts.Length < 2)
+                        {
+                            Console.WriteLine("Usage: rem [dormitoryName]");
+                            break;
+                        }
+                        dormManager.Remove(cmdParts[1], blockManager, roomManager, studentManager, itemManager);
+                        break;
+
+                    case "help":
+                        ShowHelp("help dormitory");
+                        break;
+
+                    default:
+                        Console.WriteLine("Invalid command. Use 'add', 'list', 'rem', 'help' or 'exit'.");
+                        break;
+                }
+            }
+        }
+
+        static void HandleBlockMenu(BlockManager blockManager, DormitoryManager dormManager, RoomManager roomManager, StudentManager studentManager, PersonItemManager itemManager)
+        {
+            while (true)
+            {
+                Console.Write("$ main/block> ");
+                var input = Console.ReadLine()?.Trim().ToLower();
+                if (input == "exit") break;
+
+                var cmdParts = input.Split(' ');
+                var command = cmdParts[0];
+
+                switch (command)
+                {
+                    case "add":
+                        AddBlock(blockManager, dormManager, roomManager);
+                        break;
+
+                    case "list":
+                        blockManager.List(roomManager);
+                        break;
+
+                    case "rem":
+                        if (cmdParts.Length < 2)
+                        {
+                            Console.WriteLine("Usage: rem [blockName]");
+                            break;
+                        }
+                        blockManager.Remove(cmdParts[1], roomManager, studentManager, itemManager);
+                        break;
+
+                    case "help":
+                        ShowHelp("help block");
+                        break;
+
+                    default:
+                        Console.WriteLine("Invalid command. Use 'add', 'list', 'rem', 'help' or 'exit'.");
+                        break;
+                }
+            }
+        }
+        #endregion
+
+        #region Add/List Methods
+
+        static void AddItem(PersonItemManager itemManager, StudentManager studentManager)
+        {
+            Console.Write("Enter Student Code to assign an item to: ");
+            var studentCode = Console.ReadLine();
+
+            if (!studentManager.Students.Exists(s => s.StudentCode == studentCode))
+            {
+                Console.WriteLine("Error: Student with this code not found.");
+                return;
+            }
+
+            Console.WriteLine("Select Item Type:");
+            Console.WriteLine("  100:  (Bed)");
+            Console.WriteLine("  200:  (Closet)");
+            Console.WriteLine("  300:  (Desk)");
+            Console.WriteLine("  400:  (Chair)");
+            Console.Write("Enter item type code: ");
+            var itemTypeCode = Console.ReadLine();
+
+            if (itemTypeCode != "100" && itemTypeCode != "200" && itemTypeCode != "300" && itemTypeCode != "400")
+            {
+                Console.WriteLine("Error: Invalid item type code.");
+                return;
+            }
+
+            string partNumber = itemTypeCode + studentCode;
+
+            if (itemManager.Items.Exists(i => i.PartNumber == partNumber))
+            {
+                Console.WriteLine("Error: This exact item (same type for same student) already exists.");
+                return;
+            }
+
+            var newItem = new PersonItem(partNumber, studentCode);
+            itemManager.Add(newItem);
+            Console.WriteLine($"Item with PartNumber '{partNumber}' created and assigned to student '{studentCode}'.");
+        }
+
         static void AddPerson(PersonManager personManager)
         {
             Console.Write("Enter National Code: ");
             var code = Console.ReadLine();
-            if (personManager.People.Exists(p => p.NationalCode == code))
+            if (string.IsNullOrWhiteSpace(code) || personManager.People.Exists(p => p.NationalCode == code))
             {
-                Console.WriteLine("Error: A person with this national code already exists.");
+                Console.WriteLine("Error: A person with this national code already exists or the code is invalid.");
                 return;
             }
             Console.Write("Enter First Name: ");
@@ -46,17 +421,16 @@ namespace ConsoleProject
                 Console.WriteLine("This person is not registered. Please enter their details first.");
                 AddPerson(personManager);
                 person = personManager.People.Find(x => x.NationalCode == nc);
-                if (person == null) return; 
+                if (person == null) return; // Exit if person creation was cancelled or failed
             }
 
             Console.Write("Enter Student Code: ");
             var sc = Console.ReadLine();
-            if (studentManager.Students.Exists(s => s.StudentCode == sc))
+            if (string.IsNullOrWhiteSpace(sc) || studentManager.Students.Exists(s => s.StudentCode == sc))
             {
-                Console.WriteLine("Error: A student with this student code already exists.");
+                Console.WriteLine("Error: A student with this student code already exists or the code is invalid.");
                 return;
             }
-
 
             if (!dormManager.Dorms.Any())
             {
@@ -160,278 +534,79 @@ namespace ConsoleProject
             }
         }
 
-        static void HandleDormitoryMenu(DormitoryManager dormManager)
+        static void AddDormitory(DormitoryManager dormManager, PersonManager personManager)
         {
-            while (true)
+            Console.Write("Enter Dormitory Name: ");
+            string name = Console.ReadLine();
+            if (string.IsNullOrWhiteSpace(name) || dormManager.Dorms.Exists(d => d.Name.Equals(name, StringComparison.OrdinalIgnoreCase)))
             {
-                Console.Write("$ main/dormitory> ");
-                var cmd = Console.ReadLine()?.Trim().ToLower();
-                if (cmd == "exit") break;
-
-                switch (cmd)
-                {
-                    case "add":
-                        Console.Write("Enter Dormitory Name: ");
-                        string name = Console.ReadLine();
-                        Console.Write("Enter Address: ");
-                        string addr = Console.ReadLine();
-                        Console.Write("Enter Supervisor's National Code: ");
-                        string sup = Console.ReadLine();
-                        dormManager.Add(new Dormitory(name, 0, addr, sup));
-                        Console.WriteLine("Dormitory added successfully.");
-                        break;
-
-                    case "list":
-                        Console.WriteLine("--- List of All Dormitories ---");
-                        dormManager.List();
-                        Console.WriteLine("--- End of List ---");
-                        break;
-
-                    case "help":
-                        ShowHelp("help dormitory");
-                        break;
-
-                    default:
-                        Console.WriteLine("Invalid command. Use 'add', 'list', 'help' or 'exit'.");
-                        break;
-                }
+                Console.WriteLine("Error: A dormitory with this name already exists or the name is invalid.");
+                return;
             }
+            Console.Write("Enter Address: ");
+            string addr = Console.ReadLine();
+            Console.Write("Enter Supervisor's National Code: ");
+            string sup = Console.ReadLine();
+            if (!personManager.People.Exists(p => p.NationalCode == sup))
+            {
+                Console.WriteLine("Error: Supervisor with this national code not found. Please register the person first.");
+                return;
+            }
+
+            dormManager.Add(new Dormitory(name, addr, sup));
+            Console.WriteLine("Dormitory added successfully.");
         }
 
-        static void HandleBlockMenu(BlockManager blockManager, DormitoryManager dormManager, RoomManager roomManager)
+        static void AddBlock(BlockManager blockManager, DormitoryManager dormManager, RoomManager roomManager)
         {
-            while (true)
+            if (!dormManager.Dorms.Any())
             {
-                Console.Write("$ main/block> ");
-                var cmd = Console.ReadLine()?.Trim().ToLower();
-                if (cmd == "exit") break;
-
-                switch (cmd)
-                {
-                    case "add":
-                        if (!dormManager.Dorms.Any())
-                        {
-                            Console.WriteLine("Error: No dormitories exist. Please add a dormitory first.");
-                            break;
-                        }
-                        Console.WriteLine("--- Available Dormitories ---");
-                        dormManager.List();
-                        Console.Write("Enter the name of the dormitory for this block: ");
-                        string dormName = Console.ReadLine();
-                        if (!dormManager.Dorms.Exists(d => d.Name.Equals(dormName, StringComparison.OrdinalIgnoreCase)))
-                        {
-                            Console.WriteLine("Error: Dormitory not found.");
-                            break;
-                        }
-
-                        Console.Write("Enter Block Name: ");
-                        string blockName = Console.ReadLine();
-                        if (blockManager.Blocks.Exists(b => b.Name.Equals(blockName, StringComparison.OrdinalIgnoreCase)))
-                        {
-                            Console.WriteLine("Error: A block with this name already exists.");
-                            break;
-                        }
-
-                        Console.Write("Enter Total Capacity for the block: ");
-                        if (!int.TryParse(Console.ReadLine(), out int capacity) || capacity <= 0)
-                        {
-                            Console.WriteLine("Invalid capacity. Please enter a positive number.");
-                            break;
-                        }
-
-                        Console.Write("Enter Number of Floors: ");
-                        if (!int.TryParse(Console.ReadLine(), out int floors) || floors <= 0)
-                        {
-                            Console.WriteLine("Invalid number of floors. Please enter a positive number.");
-                            break;
-                        }
-
-                        if (capacity % (floors * 6) != 0)
-                        {
-                            Console.WriteLine($"Warning: The capacity {capacity} is not perfectly divisible by {floors} floors with 6-person rooms.");
-                            Console.WriteLine("This may result in unused space. Continue? (y/n)");
-                            if (Console.ReadLine()?.ToLower() != "y") break;
-                        }
-
-                        var block = new Block(blockName, floors, capacity, dormName);
-                        blockManager.Add(block, roomManager);
-                        Console.WriteLine("Block and its rooms created successfully.");
-                        break;
-
-                    case "list":
-                        blockManager.List(roomManager);
-                        break;
-
-                    case "help":
-                        ShowHelp("help block");
-                        break;
-
-                    default:
-                        Console.WriteLine("Invalid command. Use 'add', 'list', 'help' or 'exit'.");
-                        break;
-                }
+                Console.WriteLine("Error: No dormitories exist. Please add a dormitory first.");
+                return;
             }
+            Console.WriteLine("--- Available Dormitories ---");
+            dormManager.List();
+            Console.Write("Enter the name of the dormitory for this block: ");
+            string dormName = Console.ReadLine();
+            if (!dormManager.Dorms.Exists(d => d.Name.Equals(dormName, StringComparison.OrdinalIgnoreCase)))
+            {
+                Console.WriteLine("Error: Dormitory not found.");
+                return;
+            }
+
+            Console.Write("Enter Block Name: ");
+            string blockName = Console.ReadLine();
+            if (string.IsNullOrWhiteSpace(blockName) || blockManager.Blocks.Exists(b => b.Name.Equals(blockName, StringComparison.OrdinalIgnoreCase)))
+            {
+                Console.WriteLine("Error: A block with this name already exists or the name is invalid.");
+                return;
+            }
+
+            Console.Write("Enter Total Capacity for the block: ");
+            if (!int.TryParse(Console.ReadLine(), out int capacity) || capacity <= 0)
+            {
+                Console.WriteLine("Invalid capacity. Please enter a positive number.");
+                return;
+            }
+
+            Console.Write("Enter Number of Floors: ");
+            if (!int.TryParse(Console.ReadLine(), out int floors) || floors <= 0)
+            {
+                Console.WriteLine("Invalid number of floors. Please enter a positive number.");
+                return;
+            }
+
+            if (capacity % (floors * 6) != 0)
+            {
+                Console.WriteLine($"Warning: The capacity {capacity} is not perfectly divisible by {floors} floors with 6-person rooms.");
+                Console.WriteLine("This may result in unused space. Continue? (y/n)");
+                if (Console.ReadLine()?.ToLower() != "y") return;
+            }
+
+            var block = new Block(blockName, floors, capacity, dormName);
+            blockManager.Add(block, roomManager);
+            Console.WriteLine("Block and its rooms created successfully.");
         }
-        static void ShowHelp(string command)
-        {
-            string text = "";
-            var parts = command.Split();
-
-            if (parts.Length == 1)
-            {
-                text = """
-
-                    Program commands : 
-                    For more information on a specific command, type HELP command-name 
-                        | exit         to exit the program.                             |
-                        | dormitory    show all commands related to dormitories.        |
-                        | block        show all commands related to blocks of a dormitory.|
-                        | person       show all commands related to people and students.  |
-                    example : help block
-
-                    """;
-            }
-            else if (parts.Length == 2)
-            {
-                switch (parts[1])
-                {
-                    default:
-                        text = "Sorry, there is no such subject to show help for!";
-                        break;
-                    case "dormitory":
-                        text = """
-
-                            Dormitory commands : 
-                                | exit        back to main menu.              |
-                                | list        show list of all dormitories.   |
-                                | add         add a new dormitory to the program. |
-
-                            """;
-                        break;
-                    case "block":
-                        text = """
-
-                            Block commands : 
-                                | exit        back to main menu.                   |
-                                | list        show list of all blocks and their room ranges. |
-                                | add         add a new block and its rooms automatically. |
-
-                            """;
-                        break;
-                    case "person":
-                        text = """
-
-                            Person commands : 
-                                | exit        back to main menu.                     |
-                                | list        show list of all people or students. |
-                                | add         add a new person or student.         |
-
-                            """;
-                        break;
-                }
-            }
-            else
-            {
-                text = "Invalid help usage.";
-            }
-
-            Console.WriteLine(text);
-        }
-
-        static void Main(string[] args)
-        {
-            Database.GetConnection().Close();
-
-            var personManager = new PersonManager();
-            var studentManager = new StudentManager();
-            var dormManager = new DormitoryManager(personManager);
-            var blockManager = new BlockManager();
-            var roomManager = new RoomManager();
-
-            personManager.LoadAll();
-            studentManager.LoadAll();
-            dormManager.LoadAll();
-            blockManager.LoadAll();
-            roomManager.LoadAll();
-
-            Console.WriteLine("--- Dormitory Management System ---");
-            ShowHelp("help");
-
-            while (true)
-            {
-                Console.Write("$ main> ");
-                var input = Console.ReadLine()?.Trim().ToLower();
-                if (input == "exit") break;
-
-                switch (input)
-                {
-                    case "person":
-                        HandlePersonMenu(personManager, studentManager, dormManager, blockManager, roomManager);
-                        break;
-
-                    case "dormitory":
-                        HandleDormitoryMenu(dormManager);
-                        break;
-
-                    case "block":
-                        HandleBlockMenu(blockManager, dormManager, roomManager);
-                        break;
-
-                    case "help":
-                        ShowHelp("help");
-                        break;
-
-                    default:
-                        Console.WriteLine("Invalid command. Type 'help' to see available commands.");
-                        break;
-                }
-            }
-        }
-
-        static void HandlePersonMenu(PersonManager personManager, StudentManager studentManager, DormitoryManager dormManager, BlockManager blockManager, RoomManager roomManager)
-        {
-            while (true)
-            {
-                Console.Write("$ main/person> ");
-                var subcmd = Console.ReadLine()?.Trim().ToLower();
-                if (subcmd == "exit") break;
-
-                string[] cmdParts = subcmd.Split(' ');
-                string command = cmdParts[0];
-
-                switch (command)
-                {
-                    case "add":
-                        Console.Write("Add a new person or student? (person/student): ");
-                        var kind = Console.ReadLine()?.Trim().ToLower();
-
-                        if (kind == "person")
-                        {
-                            AddPerson(personManager);
-                        }
-                        else if (kind == "student")
-                        {
-                            AddStudent(personManager, studentManager, dormManager, blockManager, roomManager);
-                        }
-                        else
-                        {
-                            Console.WriteLine("Invalid type. Please choose 'person' or 'student'.");
-                        }
-                        break;
-
-                    case "list":
-                        ListPeopleAndStudents(personManager, studentManager);
-                        break;
-
-                    case "help":
-                        ShowHelp("help person");
-                        break;
-
-                    default:
-                        Console.WriteLine("Invalid command. Use 'add', 'list', 'help' or 'exit'.");
-                        break;
-                }
-            }
-        }
+        #endregion
     }
 }
