@@ -59,7 +59,6 @@ namespace DormitorySystem
         }
     }
 
-    #region Base Deletable Class
     public abstract class Deletable
     {
         protected abstract string TableName { get; }
@@ -76,9 +75,7 @@ namespace DormitorySystem
             }
         }
     }
-    #endregion
 
-    #region Item
     public class PersonItem : Deletable
     {
         public string PartNumber { get; set; }
@@ -164,9 +161,7 @@ namespace DormitorySystem
             if (itemsToRemove.Any()) Console.WriteLine($"{itemsToRemove.Count} items removed for student {studentCode}.");
         }
     }
-    #endregion
 
-    #region Student
     public class Student : Deletable
     {
         public string StudentCode { get; set; }
@@ -232,9 +227,7 @@ namespace DormitorySystem
             Console.WriteLine($"Student {studentCode} and their items removed successfully.");
         }
     }
-    #endregion
 
-    #region Person
     public class Person : Deletable
     {
         public string FirstName { get; set; }
@@ -288,25 +281,33 @@ namespace DormitorySystem
             person.Save();
             People.Add(person);
         }
-        public void Remove(string nationalCode, StudentManager studentManager, PersonItemManager itemManager)
+        
+        public void Remove(string nationalCode, StudentManager studentManager, PersonItemManager itemManager, DormitoryManager dormitoryManager)
         {
             var person = People.Find(p => p.NationalCode.Equals(nationalCode, StringComparison.OrdinalIgnoreCase));
             if (person == null) { Console.WriteLine("Error: Person not found."); return; }
+
+            if (dormitoryManager.Dorms.Any(d => d.SupervisorCode.Equals(person.NationalCode, StringComparison.OrdinalIgnoreCase)))
+            {
+                Console.WriteLine($"Error: Cannot remove {person.FirstName} {person.LastName} because they are a supervisor of a dormitory.");
+                return;
+            }
+
             Console.Write($"Are you sure you want to remove {person.FirstName} {person.LastName} ({person.NationalCode})? This will also remove their student record and items. (y/n): ");
             if (Console.ReadLine()?.ToLower() != "y") { Console.WriteLine("Deletion cancelled."); return; }
+
             var student = studentManager.Students.Find(s => s.NationalCode == person.NationalCode);
             if (student != null)
             {
                 studentManager.Remove(student.StudentCode, itemManager);
             }
+            
             person.Delete();
             People.Remove(person);
             Console.WriteLine($"Person {person.NationalCode} removed successfully.");
         }
     }
-    #endregion
 
-    #region Room
     public class Room : Deletable
     {
         public string RoomNumber { get; set; }
@@ -371,9 +372,7 @@ namespace DormitorySystem
             if (roomsToRemove.Any()) Console.WriteLine($"{roomsToRemove.Count} rooms removed from memory for block {blockName}.");
         }
     }
-    #endregion
 
-    #region Block
     public class Block : Deletable
     {
         public string Name { get; set; }
@@ -445,6 +444,72 @@ namespace DormitorySystem
             }
             Console.WriteLine($"{roomsPerFloor * block.Floors} rooms were created for block '{block.Name}'.");
         }
+
+        /// <summary>
+        /// Handles un-assigning students, deleting old rooms, and creating new ones when a block's structure changes.
+        /// </summary>
+        public void UpdateBlockStructure(Block block, RoomManager roomManager, StudentManager studentManager)
+        {
+            // 1. Un-assign all students in the block.
+            var studentsInBlock = studentManager.Students
+                .Where(s => s.BlockName.Equals(block.Name, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            if (studentsInBlock.Any())
+            {
+                foreach (var student in studentsInBlock)
+                {
+                    student.BlockName = null;
+                    student.RoomNumber = null;
+                    student.Save();
+                }
+                Console.WriteLine($"{studentsInBlock.Count} students have been unassigned from their rooms.");
+            }
+
+            // 2. Delete all existing rooms for this block from the database and memory.
+            var roomsToRemove = roomManager.Rooms
+                .Where(r => r.BlockName.Equals(block.Name, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            using (var conn = Database.GetConnection())
+            using (var transaction = conn.BeginTransaction())
+            {
+                var cmd = new SQLiteCommand("DELETE FROM Rooms WHERE BlockName = @blockName", conn, transaction);
+                cmd.Parameters.AddWithValue("@blockName", block.Name);
+                cmd.ExecuteNonQuery();
+                transaction.Commit();
+            }
+
+            foreach (var room in roomsToRemove)
+            {
+                roomManager.Rooms.Remove(room);
+            }
+            Console.WriteLine($"{roomsToRemove.Count} old rooms have been removed.");
+
+            // 3. Create new rooms based on the block's updated properties.
+            const int roomCapacity = 6;
+            int capacityPerFloor = block.Capacity / block.Floors;
+            int roomsPerFloor = capacityPerFloor / roomCapacity;
+
+            if (roomsPerFloor > 0)
+            {
+                for (int floor = 1; floor <= block.Floors; floor++)
+                {
+                    for (int roomIndex = 1; roomIndex <= roomsPerFloor; roomIndex++)
+                    {
+                        string roomNumber = ((floor * 100) + roomIndex).ToString();
+                        Room newRoom = new Room(roomNumber, floor, roomCapacity, block.Name);
+                        roomManager.Add(newRoom);
+                    }
+                }
+                Console.WriteLine($"{roomsPerFloor * block.Floors} new rooms were created for block '{block.Name}'.");
+            }
+            else
+            {
+                Console.WriteLine("Warning: Block capacity is too low to create any rooms on each floor.");
+            }
+        }
+
         public void List(RoomManager roomManager)
         {
             Console.WriteLine("--- List of All Blocks ---");
@@ -483,9 +548,7 @@ namespace DormitorySystem
             Console.WriteLine($"Block {blockName} and all its contents removed successfully.");
         }
     }
-    #endregion
 
-    #region Dormitory
     public class Dormitory : Deletable
     {
         public string Name { get; set; }
@@ -556,5 +619,4 @@ namespace DormitorySystem
             Console.WriteLine($"Dormitory {dormName} and all its contents removed successfully.");
         }
     }
-    #endregion
 }

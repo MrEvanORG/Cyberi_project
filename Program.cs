@@ -11,7 +11,7 @@ namespace ConsoleProject
             string text = "";
             var parts = command.Split();
 
-            if (parts.Length == 1) 
+            if (parts.Length == 1)
             {
                 text = """
 
@@ -40,6 +40,7 @@ namespace ConsoleProject
                                 | exit        back to main menu.                                     |
                                 | list        show list of all dormitories.                          |
                                 | add         add a new dormitory to the program.                      |
+                                | edit [name] edit a dormitory's address or supervisor.              |
                                 | rem [name]  remove a dormitory and all its related blocks/students.|
 
                             """;
@@ -62,6 +63,7 @@ namespace ConsoleProject
                                 | exit        back to main menu.                                         |
                                 | list        show list of all people or students.                     |
                                 | add         add a new person or student.                             |
+                                | edit        edit a person's details or a student's room assignment.  |
                                 | rem         remove a person (and their student record) or just a student. |
 
                             """;
@@ -89,8 +91,10 @@ namespace ConsoleProject
 
         static void Main(string[] args)
         {
+            // Initialize database connection to create the file if it doesn't exist.
             Database.GetConnection().Close();
 
+            // Create instances of all manager classes
             var personManager = new PersonManager();
             var studentManager = new StudentManager();
             var itemManager = new PersonItemManager();
@@ -98,6 +102,7 @@ namespace ConsoleProject
             var blockManager = new BlockManager();
             var dormManager = new DormitoryManager();
 
+            // Load all data from the database into memory
             personManager.LoadAll();
             studentManager.LoadAll();
             itemManager.LoadAll();
@@ -108,6 +113,7 @@ namespace ConsoleProject
             Console.WriteLine("--- Dormitory Management System ---");
             ShowHelp("help");
 
+            // Main command loop
             while (true)
             {
                 Console.Write("$ main> ");
@@ -146,7 +152,6 @@ namespace ConsoleProject
             }
         }
 
-        #region Menu Handlers
 
         static void HandleItemMenu(PersonItemManager itemManager, StudentManager studentManager)
         {
@@ -219,6 +224,23 @@ namespace ConsoleProject
                             Console.WriteLine("Invalid type. Please choose 'person' or 'student'.");
                         }
                         break;
+                        
+                    case "edit":
+                        Console.Write("Edit 'person' details or 'student' assignment? (person/student): ");
+                        var editType = Console.ReadLine()?.Trim().ToLower();
+                        if (editType == "person")
+                        {
+                            EditPerson(personManager);
+                        }
+                        else if (editType == "student")
+                        {
+                            EditStudent(studentManager, dormManager, blockManager, roomManager);
+                        }
+                        else
+                        {
+                            Console.WriteLine("Invalid type.");
+                        }
+                        break;
 
                     case "list":
                         ListPeopleAndStudents(personManager, studentManager);
@@ -231,7 +253,7 @@ namespace ConsoleProject
                         {
                             Console.Write("Enter National Code of the person to remove: ");
                             var nationalCode = Console.ReadLine();
-                            personManager.Remove(nationalCode, studentManager, itemManager);
+                            personManager.Remove(nationalCode, studentManager, itemManager ,dormManager);
                         }
                         else if (remType == "student")
                         {
@@ -250,7 +272,7 @@ namespace ConsoleProject
                         break;
 
                     default:
-                        Console.WriteLine("Invalid command. Use 'add', 'list', 'rem', 'help' or 'exit'.");
+                        Console.WriteLine("Invalid command. Use 'add', 'list', 'edit', 'rem', 'help' or 'exit'.");
                         break;
                 }
             }
@@ -271,6 +293,15 @@ namespace ConsoleProject
                 {
                     case "add":
                         AddDormitory(dormManager, personManager);
+                        break;
+                    
+                    case "edit":
+                        if (cmdParts.Length < 2)
+                        {
+                            Console.WriteLine("Usage: edit [dormitoryName]");
+                            break;
+                        }
+                        EditDormitory(cmdParts[1], dormManager, personManager);
                         break;
 
                     case "list":
@@ -293,7 +324,7 @@ namespace ConsoleProject
                         break;
 
                     default:
-                        Console.WriteLine("Invalid command. Use 'add', 'list', 'rem', 'help' or 'exit'.");
+                        Console.WriteLine("Invalid command. Use 'add', 'list', 'edit', 'rem', 'help' or 'exit'.");
                         break;
                 }
             }
@@ -339,9 +370,157 @@ namespace ConsoleProject
                 }
             }
         }
-        #endregion
 
-        #region Add/List Methods
+
+        static void EditDormitory(string dormName, DormitoryManager dormManager, PersonManager personManager)
+        {
+            var dorm = dormManager.Dorms.Find(d => d.Name.Equals(dormName, StringComparison.OrdinalIgnoreCase));
+            if (dorm == null)
+            {
+                Console.WriteLine("Error: Dormitory not found.");
+                return;
+            }
+
+            Console.WriteLine($"Editing dormitory '{dorm.Name}'. Press Enter to keep current value.");
+            
+            Console.Write($"New Address ({dorm.Address}): ");
+            var newAddress = Console.ReadLine();
+            if (!string.IsNullOrWhiteSpace(newAddress))
+            {
+                dorm.Address = newAddress;
+            }
+
+            Console.Write($"New Supervisor's National Code ({dorm.SupervisorCode}): ");
+            var newSupervisorCode = Console.ReadLine();
+            if (!string.IsNullOrWhiteSpace(newSupervisorCode))
+            {
+                if (!personManager.People.Exists(p => p.NationalCode == newSupervisorCode))
+                {
+                    Console.WriteLine("Error: No person found with this national code. Update failed.");
+                    dormManager.LoadAll(); 
+                    return;
+                }
+                dorm.SupervisorCode = newSupervisorCode;
+            }
+
+            dorm.Save();
+            Console.WriteLine("Dormitory updated successfully.");
+        }
+        
+        static void EditPerson(PersonManager personManager)
+        {
+            Console.Write("Enter National Code of the person to edit: ");
+            var nationalCode = Console.ReadLine();
+            var person = personManager.People.Find(p => p.NationalCode.Equals(nationalCode, StringComparison.OrdinalIgnoreCase));
+
+            if (person == null)
+            {
+                Console.WriteLine("Error: Person not found.");
+                return;
+            }
+
+            Console.WriteLine($"Editing person '{person.FirstName} {person.LastName}'. Press Enter to keep current value.");
+            Console.WriteLine("Note: National Code cannot be changed.");
+            
+            Console.Write($"New First Name ({person.FirstName}): ");
+            var newFirstName = Console.ReadLine();
+            if (!string.IsNullOrWhiteSpace(newFirstName))
+            {
+                person.FirstName = newFirstName;
+            }
+
+            Console.Write($"New Last Name ({person.LastName}): ");
+            var newLastName = Console.ReadLine();
+            if (!string.IsNullOrWhiteSpace(newLastName))
+            {
+                person.LastName = newLastName;
+            }
+
+            Console.Write($"New Address ({person.Address}): ");
+            var newAddress = Console.ReadLine();
+            if (!string.IsNullOrWhiteSpace(newAddress))
+            {
+                person.Address = newAddress;
+            }
+            
+            Console.Write($"New Phone ({person.Phone}): ");
+            var newPhone = Console.ReadLine();
+            if (!string.IsNullOrWhiteSpace(newPhone))
+            {
+                person.Phone = newPhone;
+            }
+            
+            person.Save();
+            Console.WriteLine("Person details updated successfully.");
+        }
+
+        static void EditStudent(StudentManager studentManager, DormitoryManager dormManager, BlockManager blockManager, RoomManager roomManager)
+        {
+            Console.Write("Enter Student Code of the student to edit: ");
+            var studentCode = Console.ReadLine();
+            var student = studentManager.Students.Find(s => s.StudentCode.Equals(studentCode, StringComparison.OrdinalIgnoreCase));
+
+            if (student == null)
+            {
+                Console.WriteLine("Error: Student not found.");
+                return;
+            }
+
+            Console.WriteLine($"Current location for student {student.StudentCode}: {student.DormitoryName}/{student.BlockName}/{student.RoomNumber}");
+            Console.WriteLine("Enter new location details to reassign the student. Press Enter to keep current assignment.");
+            Console.WriteLine("Note: Student Code and National Code cannot be changed.");
+
+            if (!dormManager.Dorms.Any()) { Console.WriteLine("Error: No dormitories available."); return; }
+            Console.WriteLine("--- Available Dormitories ---");
+            dormManager.List();
+            Console.Write($"Enter new dormitory name ({student.DormitoryName}): ");
+            string dormName = Console.ReadLine();
+            if (string.IsNullOrWhiteSpace(dormName)) dormName = student.DormitoryName; 
+            if (!dormManager.Dorms.Exists(d => d.Name.Equals(dormName, StringComparison.OrdinalIgnoreCase))) { Console.WriteLine("Error: Dormitory not found."); return; }
+
+            var blocksInDorm = blockManager.Blocks.Where(b => b.DormitoryName.Equals(dormName, StringComparison.OrdinalIgnoreCase)).ToList();
+            if (!blocksInDorm.Any()) { Console.WriteLine("Error: No blocks available in this dormitory."); return; }
+            Console.WriteLine($"--- Available Blocks in {dormName} ---");
+            foreach (var b in blocksInDorm) Console.WriteLine($"- {b.Name}");
+            Console.Write($"Enter new block name ({student.BlockName}): ");
+            string blockName = Console.ReadLine();
+            if (string.IsNullOrWhiteSpace(blockName)) blockName = student.BlockName;
+            if (!blocksInDorm.Exists(b => b.Name.Equals(blockName, StringComparison.OrdinalIgnoreCase))) { Console.WriteLine("Error: Block not found in this dormitory."); return; }
+
+            var roomsInBlock = roomManager.Rooms.Where(r => r.BlockName.Equals(blockName, StringComparison.OrdinalIgnoreCase)).ToList();
+            if (!roomsInBlock.Any()) { Console.WriteLine("Error: No rooms found in this block."); return; }
+            Console.WriteLine($"--- Available Rooms in {blockName} ---");
+            var roomsByFloor = roomsInBlock.GroupBy(r => r.Floor).OrderBy(g => g.Key);
+            foreach (var floorGroup in roomsByFloor)
+            {
+                var roomNumbers = floorGroup.Select(r => int.Parse(r.RoomNumber)).OrderBy(n => n).ToList();
+                if (roomNumbers.Any()) Console.WriteLine($"Floor {floorGroup.Key}: Rooms from {roomNumbers.First()} to {roomNumbers.Last()}");
+            }
+
+            Console.Write($"Enter new room number ({student.RoomNumber}): ");
+            string roomNumber = Console.ReadLine();
+            if (string.IsNullOrWhiteSpace(roomNumber)) roomNumber = student.RoomNumber;
+            var selectedRoom = roomManager.Rooms.Find(r => r.RoomNumber == roomNumber && r.BlockName.Equals(blockName, StringComparison.OrdinalIgnoreCase));
+            if (selectedRoom == null) { Console.WriteLine("Error: Room not found in this block."); return; }
+
+            if (roomNumber != student.RoomNumber || blockName != student.BlockName)
+            {
+                var studentsInRoomCount = studentManager.Students.Count(s => s.RoomNumber == roomNumber && s.BlockName.Equals(blockName, StringComparison.OrdinalIgnoreCase));
+                if (studentsInRoomCount >= selectedRoom.Capacity) 
+                {
+                    Console.WriteLine($"Error: Room {roomNumber} is full ({studentsInRoomCount}/{selectedRoom.Capacity}). Update failed.");
+                    studentManager.LoadAll(); 
+                    return;
+                }
+            }
+            
+            student.DormitoryName = dormName;
+            student.BlockName = blockName;
+            student.RoomNumber = roomNumber;
+            student.Save();
+            
+            Console.WriteLine($"Student assignment updated successfully.");
+        }
 
         static void AddItem(PersonItemManager itemManager, StudentManager studentManager)
         {
@@ -421,7 +600,7 @@ namespace ConsoleProject
                 Console.WriteLine("This person is not registered. Please enter their details first.");
                 AddPerson(personManager);
                 person = personManager.People.Find(x => x.NationalCode == nc);
-                if (person == null) return; // Exit if person creation was cancelled or failed
+                if (person == null) return; 
             }
 
             Console.Write("Enter Student Code: ");
@@ -607,6 +786,5 @@ namespace ConsoleProject
             blockManager.Add(block, roomManager);
             Console.WriteLine("Block and its rooms created successfully.");
         }
-        #endregion
     }
 }
