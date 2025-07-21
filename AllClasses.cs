@@ -55,7 +55,7 @@ namespace DormitorySystem
             {
                 using (var cmd = new SQLiteCommand(query, conn)) { cmd.ExecuteNonQuery(); }
             }
-            Console.WriteLine("Database initialized successfully.");
+            Console.WriteLine("Database Create And Initialized Successfully For The Usage .");
         }
     }
 
@@ -131,24 +131,23 @@ namespace DormitorySystem
         public void List(StudentManager studentManager)
         {
             Console.WriteLine("--- List of All Items ---");
-            if (!Items.Any()) { Console.WriteLine("No items found."); return; }
+            if (!Items.Any()) { Console.WriteLine("No Items Found ."); return; }
             foreach (var item in Items)
             {
                 var student = studentManager.Students.Find(s => s.StudentCode == item.StudentCode);
                 string location = student != null ? $"{student.DormitoryName}/{student.BlockName}/{student.RoomNumber}" : "N/A";
                 Console.WriteLine($"- Part Number: {item.PartNumber}, Type: {item.GetItemType()}, Owner Code: {item.StudentCode}, Location: {location}");
             }
-            Console.WriteLine("--- End of List ---");
         }
         public void Remove(string partNumber)
         {
             var item = Items.Find(i => i.PartNumber.Equals(partNumber, StringComparison.OrdinalIgnoreCase));
-            if (item == null) { Console.WriteLine("Error: Item not found."); return; }
-            Console.Write($"Are you sure you want to delete item {item.PartNumber} ({item.GetItemType()})? (y/n): ");
-            if (Console.ReadLine()?.ToLower() != "y") { Console.WriteLine("Deletion cancelled."); return; }
+            if (item == null) { Console.WriteLine("Error: Item Not Found ."); return; }
+            Console.Write($"Are You Sure You Want To Delete Item {item.PartNumber} ({item.GetItemType()})? (y/n) : ");
+            if (Console.ReadLine()?.ToLower() != "y") { Console.WriteLine("Deletion Cancelled ."); return; }
             item.Delete();
             Items.Remove(item);
-            Console.WriteLine("Item removed successfully.");
+            Console.WriteLine("Item Removed Successfully .");
         }
         public void RemoveByStudent(string studentCode)
         {
@@ -158,7 +157,7 @@ namespace DormitorySystem
                 item.Delete();
                 Items.Remove(item);
             }
-            if (itemsToRemove.Any()) Console.WriteLine($"{itemsToRemove.Count} items removed for student {studentCode}.");
+            if (itemsToRemove.Any()) Console.WriteLine($"{itemsToRemove.Count} Items Removed For Student {studentCode} .");
         }
     }
 
@@ -218,13 +217,13 @@ namespace DormitorySystem
         public void Remove(string studentCode, PersonItemManager itemManager)
         {
             var student = Students.Find(s => s.StudentCode.Equals(studentCode, StringComparison.OrdinalIgnoreCase));
-            if (student == null) { Console.WriteLine("Error: Student not found."); return; }
-            Console.Write($"Are you sure you want to remove student {student.StudentCode}? This will also remove all their items. (y/n): ");
-            if (Console.ReadLine()?.ToLower() != "y") { Console.WriteLine("Deletion cancelled."); return; }
+            if (student == null) { Console.WriteLine("Error: Student Not Found ."); return; }
+            Console.Write($"Are You Sure You Want To Remove Student {student.StudentCode}? This Will Also Remove All Their Items. (y/n): ");
+            if (Console.ReadLine()?.ToLower() != "y") { Console.WriteLine("Deletion Cancelled ."); return; }
             itemManager.RemoveByStudent(student.StudentCode);
             student.Delete();
             Students.Remove(student);
-            Console.WriteLine($"Student {studentCode} and their items removed successfully.");
+            Console.WriteLine($"Student {studentCode} And Their Items Removed Successfully.");
         }
     }
 
@@ -281,30 +280,30 @@ namespace DormitorySystem
             person.Save();
             People.Add(person);
         }
-        
+
         public void Remove(string nationalCode, StudentManager studentManager, PersonItemManager itemManager, DormitoryManager dormitoryManager)
         {
             var person = People.Find(p => p.NationalCode.Equals(nationalCode, StringComparison.OrdinalIgnoreCase));
-            if (person == null) { Console.WriteLine("Error: Person not found."); return; }
+            if (person == null) { Console.WriteLine("Error: Person Not Found ."); return; }
 
             if (dormitoryManager.Dorms.Any(d => d.SupervisorCode.Equals(person.NationalCode, StringComparison.OrdinalIgnoreCase)))
             {
-                Console.WriteLine($"Error: Cannot remove {person.FirstName} {person.LastName} because they are a supervisor of a dormitory.");
+                Console.WriteLine($"Error: Cannot Remove {person.FirstName} {person.LastName} Because He/She Is A Supervisor Of A Dormitory .");
                 return;
             }
 
-            Console.Write($"Are you sure you want to remove {person.FirstName} {person.LastName} ({person.NationalCode})? This will also remove their student record and items. (y/n): ");
-            if (Console.ReadLine()?.ToLower() != "y") { Console.WriteLine("Deletion cancelled."); return; }
+            Console.Write($"Are You Sure You Want To Remove {person.FirstName} {person.LastName} ({person.NationalCode})? This Will Also Remove Their Student Record And Items. (y/n): ");
+            if (Console.ReadLine()?.ToLower() != "y") { Console.WriteLine("Deletion Cancelled ."); return; }
 
             var student = studentManager.Students.Find(s => s.NationalCode == person.NationalCode);
             if (student != null)
             {
                 studentManager.Remove(student.StudentCode, itemManager);
             }
-            
+
             person.Delete();
             People.Remove(person);
-            Console.WriteLine($"Person {person.NationalCode} removed successfully.");
+            Console.WriteLine($"Person And Student Object With NationalCode :{person.NationalCode} Removed Successfully.");
         }
     }
 
@@ -369,7 +368,7 @@ namespace DormitorySystem
             {
                 Rooms.Remove(room);
             }
-            if (roomsToRemove.Any()) Console.WriteLine($"{roomsToRemove.Count} rooms removed from memory for block {blockName}.");
+            if (roomsToRemove.Any()) Console.WriteLine($"{roomsToRemove.Count} Rooms Removed From Block {blockName} .");
         }
     }
 
@@ -429,7 +428,7 @@ namespace DormitorySystem
 
             if (roomsPerFloor == 0)
             {
-                Console.WriteLine("Warning: Block capacity is too low to create any rooms on each floor.");
+                Console.WriteLine("Warning: Block Capacity Is Too Low To Create Any Rooms On Each Floor.");
                 return;
             }
 
@@ -442,15 +441,11 @@ namespace DormitorySystem
                     roomManager.Add(newRoom);
                 }
             }
-            Console.WriteLine($"{roomsPerFloor * block.Floors} rooms were created for block '{block.Name}'.");
+            Console.WriteLine($"- {roomsPerFloor * block.Floors} Rooms Were Created For Block '{block.Name}' .");
         }
 
-        /// <summary>
-        /// Handles un-assigning students, deleting old rooms, and creating new ones when a block's structure changes.
-        /// </summary>
         public void UpdateBlockStructure(Block block, RoomManager roomManager, StudentManager studentManager)
         {
-            // 1. Un-assign all students in the block.
             var studentsInBlock = studentManager.Students
                 .Where(s => s.BlockName.Equals(block.Name, StringComparison.OrdinalIgnoreCase))
                 .ToList();
@@ -463,10 +458,10 @@ namespace DormitorySystem
                     student.RoomNumber = null;
                     student.Save();
                 }
-                Console.WriteLine($"{studentsInBlock.Count} students have been unassigned from their rooms.");
+                Console.WriteLine($"{studentsInBlock.Count} Students Have Been Unassigned From Their Rooms .");
             }
 
-            // 2. Delete all existing rooms for this block from the database and memory.
+       
             var roomsToRemove = roomManager.Rooms
                 .Where(r => r.BlockName.Equals(block.Name, StringComparison.OrdinalIgnoreCase))
                 .ToList();
@@ -484,9 +479,8 @@ namespace DormitorySystem
             {
                 roomManager.Rooms.Remove(room);
             }
-            Console.WriteLine($"{roomsToRemove.Count} old rooms have been removed.");
-
-            // 3. Create new rooms based on the block's updated properties.
+            Console.WriteLine($"{roomsToRemove.Count} Old Rooms Have Been Removed.");
+ 
             const int roomCapacity = 6;
             int capacityPerFloor = block.Capacity / block.Floors;
             int roomsPerFloor = capacityPerFloor / roomCapacity;
@@ -502,11 +496,11 @@ namespace DormitorySystem
                         roomManager.Add(newRoom);
                     }
                 }
-                Console.WriteLine($"{roomsPerFloor * block.Floors} new rooms were created for block '{block.Name}'.");
+                Console.WriteLine($"{roomsPerFloor * block.Floors} New Rooms Were Created For Block '{block.Name}' .");
             }
             else
             {
-                Console.WriteLine("Warning: Block capacity is too low to create any rooms on each floor.");
+                Console.WriteLine("Warning: Block Capacity Is Too Low To Create Any Rooms On Each Floor.");
             }
         }
 
@@ -518,23 +512,22 @@ namespace DormitorySystem
             {
                 Console.WriteLine($"\n- Block Name: {b.Name}, Dormitory: {b.DormitoryName}, Floors: {b.Floors}, Capacity: {b.Capacity}");
                 var roomsInBlock = roomManager.Rooms.Where(r => r.BlockName.Equals(b.Name, StringComparison.OrdinalIgnoreCase)).ToList();
-                if (!roomsInBlock.Any()) { Console.WriteLine("  (No rooms found for this block)"); continue; }
+                if (!roomsInBlock.Any()) { Console.WriteLine("(No Rooms Found For This Block) , May Program Has Some Bugs! "); continue; }
                 var roomsByFloor = roomsInBlock.GroupBy(r => r.Floor).OrderBy(g => g.Key);
                 Console.WriteLine("  Room Ranges:");
                 foreach (var floorGroup in roomsByFloor)
                 {
                     var roomNumbers = floorGroup.Select(r => int.Parse(r.RoomNumber)).OrderBy(n => n).ToList();
-                    if (roomNumbers.Any()) { Console.WriteLine($"    Floor {floorGroup.Key}: From {roomNumbers.First()} to {roomNumbers.Last()}"); }
+                    if (roomNumbers.Any()) { Console.WriteLine($"- Floor {floorGroup.Key}: From {roomNumbers.First()} To {roomNumbers.Last()}"); }
                 }
             }
-            Console.WriteLine("\n--- End of List ---");
         }
         public void Remove(string blockName, RoomManager roomManager, StudentManager studentManager, PersonItemManager itemManager)
         {
             var block = Blocks.Find(b => b.Name.Equals(blockName, StringComparison.OrdinalIgnoreCase));
-            if (block == null) { Console.WriteLine("Error: Block not found."); return; }
-            Console.Write($"Are you sure you want to remove block {block.Name}? This will remove all its rooms, students, and their items. (y/n): ");
-            if (Console.ReadLine()?.ToLower() != "y") { Console.WriteLine("Deletion cancelled."); return; }
+            if (block == null) { Console.WriteLine("Error: Block Not Found."); return; }
+            Console.Write($"Are You Sure You Want To Remove Block {block.Name}? This Will Remove All (rooms, students,studetnt items,rooms items) (y/n) : ");
+            if (Console.ReadLine()?.ToLower() != "y") { Console.WriteLine("Deletion Cancelled ."); return; }
 
             block.Delete();
             var studentsInBlock = studentManager.Students.Where(s => s.BlockName.Equals(block.Name, StringComparison.OrdinalIgnoreCase)).ToList();
@@ -545,7 +538,7 @@ namespace DormitorySystem
             }
             roomManager.RemoveByBlock(block.Name);
             Blocks.Remove(block);
-            Console.WriteLine($"Block {blockName} and all its contents removed successfully.");
+            Console.WriteLine($"Block {blockName} And All Its Contents Removed Successfully .");
         }
     }
 
@@ -603,9 +596,9 @@ namespace DormitorySystem
         public void Remove(string dormName, BlockManager blockManager, RoomManager roomManager, StudentManager studentManager, PersonItemManager itemManager)
         {
             var dorm = Dorms.Find(d => d.Name.Equals(dormName, StringComparison.OrdinalIgnoreCase));
-            if (dorm == null) { Console.WriteLine("Error: Dormitory not found."); return; }
-            Console.Write($"Are you sure you want to remove dormitory {dorm.Name}? This will remove ALL associated blocks, rooms, students, and items. (y/n): ");
-            if (Console.ReadLine()?.ToLower() != "y") { Console.WriteLine("Deletion cancelled."); return; }
+            if (dorm == null) { Console.WriteLine("Error: Dormitory Not Found."); return; }
+            Console.Write($"Are You Sure You Want To Remove Dormitory {dorm.Name}? This Will Remove ALL (blocks, rooms, students,student item,room items) (y/n) : ");
+            if (Console.ReadLine()?.ToLower() != "y") { Console.WriteLine("Deletion Cancelled."); return; }
 
 
             var blocksInDorm = blockManager.Blocks.Where(b => b.DormitoryName.Equals(dorm.Name, StringComparison.OrdinalIgnoreCase)).ToList();
@@ -616,7 +609,7 @@ namespace DormitorySystem
 
             dorm.Delete();
             Dorms.Remove(dorm);
-            Console.WriteLine($"Dormitory {dormName} and all its contents removed successfully.");
+            Console.WriteLine($"Dormitory {dormName} And All Its contents Removed Successfully.");
         }
     }
 }
