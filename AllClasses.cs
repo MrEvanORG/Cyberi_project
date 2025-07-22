@@ -48,7 +48,10 @@ namespace DormitorySystem
                     FOREIGN KEY (DormitoryName) REFERENCES Dormitories(Name) ON DELETE SET NULL );",
                 @"CREATE TABLE IF NOT EXISTS PersonItems (
                     PartNumber TEXT PRIMARY KEY, StudentCode TEXT NOT NULL,
-                    FOREIGN KEY (StudentCode) REFERENCES Students(StudentCode) ON DELETE CASCADE );"
+                    FOREIGN KEY (StudentCode) REFERENCES Students(StudentCode) ON DELETE CASCADE );",
+                @"CREATE TABLE IF NOT EXISTS RoomItems (
+                    PartNumber TEXT PRIMARY KEY, DormitoryName TEXT NOT NULL, BlockName TEXT NOT NULL, RoomNumber TEXT NOT NULL,
+                    FOREIGN KEY (BlockName) REFERENCES Blocks(Name) ON DELETE CASCADE );"
             };
 
             foreach (var query in queries)
@@ -130,8 +133,8 @@ namespace DormitorySystem
         public void Add(PersonItem item) { item.Save(); Items.Add(item); }
         public void List(StudentManager studentManager)
         {
-            Console.WriteLine("--- List of All Items ---");
-            if (!Items.Any()) { Console.WriteLine("No Items Found ."); return; }
+            Console.WriteLine("--- List Of All Person Items ---");
+            if (!Items.Any()) { Console.WriteLine("No Person Items Found ."); return; }
             foreach (var item in Items)
             {
                 var student = studentManager.Students.Find(s => s.StudentCode == item.StudentCode);
@@ -142,12 +145,12 @@ namespace DormitorySystem
         public void Remove(string partNumber)
         {
             var item = Items.Find(i => i.PartNumber.Equals(partNumber, StringComparison.OrdinalIgnoreCase));
-            if (item == null) { Console.WriteLine("Error: Item Not Found ."); return; }
-            Console.Write($"Are You Sure You Want To Delete Item {item.PartNumber} ({item.GetItemType()})? (y/n) : ");
+            if (item == null) { Console.WriteLine("Error: Person Item Not Found ."); return; }
+            Console.Write($"Are You Sure You Want To Delete Item {item.PartNumber}{item.GetItemType()}? (y/n) : ");
             if (Console.ReadLine()?.ToLower() != "y") { Console.WriteLine("Deletion Cancelled ."); return; }
             item.Delete();
             Items.Remove(item);
-            Console.WriteLine("Item Removed Successfully .");
+            Console.WriteLine("Person Item Removed Successfully .");
         }
         public void RemoveByStudent(string studentCode)
         {
@@ -157,7 +160,265 @@ namespace DormitorySystem
                 item.Delete();
                 Items.Remove(item);
             }
-            if (itemsToRemove.Any()) Console.WriteLine($"{itemsToRemove.Count} Items Removed For Student {studentCode} .");
+            if (itemsToRemove.Any()) Console.WriteLine($"{itemsToRemove.Count} Person Items Removed For Student {studentCode} .");
+        }
+        public void Edit(string partNumber, StudentManager studentManager)
+        {
+            var item = Items.Find(i => i.PartNumber.Equals(partNumber, StringComparison.OrdinalIgnoreCase));
+            if (item == null)
+            {
+                Console.WriteLine("Error: Person Item Not Found .");
+                return;
+            }
+
+            Console.WriteLine($"Editing Item {item.PartNumber}. Press Enter To Keep Current Value.");
+
+            Console.Write($"New Student Code ({item.StudentCode}) : ");
+            var newStudentCode = Console.ReadLine();
+            if (string.IsNullOrWhiteSpace(newStudentCode))
+            {
+                newStudentCode = item.StudentCode;
+            }
+            else if (!studentManager.Students.Exists(s => s.StudentCode == newStudentCode))
+            {
+                Console.WriteLine("Error: Student With This Code Not Found. Update Failed.");
+                return;
+            }
+
+            Console.WriteLine("Item Types: 100 (Bed), 200 (Closet), 300 (Desk), 400 (Chair)");
+            Console.Write($"New Item Type Code ({item.PartNumber.Substring(0, 3)}) : ");
+            var newItemTypeCode = Console.ReadLine();
+            if (string.IsNullOrWhiteSpace(newItemTypeCode))
+            {
+                newItemTypeCode = item.PartNumber.Substring(0, 3);
+            }
+            else if (newItemTypeCode != "100" && newItemTypeCode != "200" && newItemTypeCode != "300" && newItemTypeCode != "400")
+            {
+                Console.WriteLine("Error: Invalid Item Type Code. Update Failed.");
+                return;
+            }
+
+            string newPartNumber = newItemTypeCode + newStudentCode;
+
+            if (newPartNumber == item.PartNumber)
+            {
+                Console.WriteLine("No Changes Were Made.");
+                return;
+            }
+
+            if (Items.Exists(i => i.PartNumber == newPartNumber))
+            {
+                Console.WriteLine("Error: An Item With This New Combination Of Type And Student Code Already Exists. Update Failed.");
+                return;
+            }
+
+            var oldItem = new PersonItem(item.PartNumber, item.StudentCode);
+            item.PartNumber = newPartNumber;
+            item.StudentCode = newStudentCode;
+
+            oldItem.Delete();
+            item.Save();
+
+            Console.WriteLine("Person Item Updated Successfully.");
+        }
+    }
+
+    public class RoomItem : Deletable
+    {
+        public string PartNumber { get; set; }
+        public string DormitoryName { get; set; }
+        public string BlockName { get; set; }
+        public string RoomNumber { get; set; }
+        protected override string TableName => "RoomItems";
+        protected override string PrimaryKeyColumn => "PartNumber";
+        protected override object PrimaryKeyValue => PartNumber;
+
+        public RoomItem(string partNumber, string dormitoryName, string blockName, string roomNumber)
+        {
+            PartNumber = partNumber;
+            DormitoryName = dormitoryName;
+            BlockName = blockName;
+            RoomNumber = roomNumber;
+        }
+
+        public void Save()
+        {
+            using (var conn = Database.GetConnection())
+            {
+                var cmd = new SQLiteCommand("REPLACE INTO RoomItems (PartNumber, DormitoryName, BlockName, RoomNumber) VALUES (@pn, @dn, @bn, @rn)", conn);
+                cmd.Parameters.AddWithValue("@pn", PartNumber);
+                cmd.Parameters.AddWithValue("@dn", DormitoryName);
+                cmd.Parameters.AddWithValue("@bn", BlockName);
+                cmd.Parameters.AddWithValue("@rn", RoomNumber);
+                cmd.ExecuteNonQuery();
+            }
+        }
+        public string GetItemType()
+        {
+            if (PartNumber.StartsWith("100")) return " (Carpet)";
+            if (PartNumber.StartsWith("200")) return " (Refrigerator)";
+            if (PartNumber.StartsWith("300")) return " (Television)";
+            return " (Unknown)";
+        }
+    }
+
+    public class RoomItemManager
+    {
+        public List<RoomItem> Items { get; private set; } = new List<RoomItem>();
+        private static readonly Random random = new Random();
+
+        public void LoadAll()
+        {
+            Items.Clear();
+            using (var conn = Database.GetConnection())
+            {
+                var cmd = new SQLiteCommand("SELECT * FROM RoomItems", conn);
+                using (var reader = cmd.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        Items.Add(new RoomItem(
+                            reader["PartNumber"].ToString(),
+                            reader["DormitoryName"].ToString(),
+                            reader["BlockName"].ToString(),
+                            reader["RoomNumber"].ToString()
+                        ));
+                    }
+                }
+            }
+        }
+
+        public void Add(RoomItem item)
+        {
+            item.Save();
+            Items.Add(item);
+        }
+
+        public string GenerateUniquePartNumber(string itemTypeCode, string roomNumber)
+        {
+            string partNumber;
+            do
+            {
+                string randomSuffix = random.Next(100000, 999999).ToString();
+                partNumber = $"{itemTypeCode}{roomNumber}{randomSuffix}";
+            } while (Items.Exists(i => i.PartNumber == partNumber));
+            return partNumber;
+        }
+
+        public void List()
+        {
+            Console.WriteLine("--- List Of All Room Items ---");
+            if (!Items.Any()) { Console.WriteLine("No Room Items Found ."); return; }
+            foreach (var item in Items)
+            {
+                string location = $"{item.DormitoryName}/{item.BlockName}/{item.RoomNumber}";
+                Console.WriteLine($"- Part Number: {item.PartNumber}, Type: {item.GetItemType()}, Location: {location}");
+            }
+        }
+
+        public void Remove(string partNumber)
+        {
+            var item = Items.Find(i => i.PartNumber.Equals(partNumber, StringComparison.OrdinalIgnoreCase));
+            if (item == null) { Console.WriteLine("Error: Room Item Not Found ."); return; }
+            Console.Write($"Are You Sure You Want To Delete Item {item.PartNumber}{item.GetItemType()}? (y/n) : ");
+            if (Console.ReadLine()?.ToLower() != "y") { Console.WriteLine("Deletion Cancelled ."); return; }
+            item.Delete();
+            Items.Remove(item);
+            Console.WriteLine("Room Item Removed Successfully .");
+        }
+
+        public void RemoveByBlock(string blockName)
+        {
+            var itemsToRemove = Items.Where(i => i.BlockName.Equals(blockName, StringComparison.OrdinalIgnoreCase)).ToList();
+            foreach (var item in itemsToRemove)
+            {
+                Items.Remove(item);
+            }
+            if (itemsToRemove.Any()) Console.WriteLine($"{itemsToRemove.Count} Room Items Removed For Block {blockName} .");
+        }
+
+        public void Edit(string partNumber, DormitoryManager dormManager, BlockManager blockManager, RoomManager roomManager)
+        {
+            var item = Items.Find(i => i.PartNumber.Equals(partNumber, StringComparison.OrdinalIgnoreCase));
+            if (item == null)
+            {
+                Console.WriteLine("Error: Room Item Not Found .");
+                return;
+            }
+
+            Console.WriteLine($"Editing Item {item.PartNumber}. Press Enter To Keep Current Value.");
+
+            // Location Edit
+            Console.WriteLine("--- Select New Location ---");
+            if (!dormManager.Dorms.Any()) { Console.WriteLine("Error: No Dormitories Available."); return; }
+            Console.WriteLine("--- Available Dormitories ---");
+            dormManager.List();
+            Console.Write($"New Dormitory Name ({item.DormitoryName}) : ");
+            string newDormName = Console.ReadLine();
+            if (string.IsNullOrWhiteSpace(newDormName)) newDormName = item.DormitoryName;
+            if (!dormManager.Dorms.Exists(d => d.Name.Equals(newDormName, StringComparison.OrdinalIgnoreCase))) { Console.WriteLine("Error: Dormitory Not Found."); return; }
+
+            var blocksInDorm = blockManager.Blocks.Where(b => b.DormitoryName.Equals(newDormName, StringComparison.OrdinalIgnoreCase)).ToList();
+            if (!blocksInDorm.Any()) { Console.WriteLine("Error: No Blocks Available In This Dormitory."); return; }
+            Console.WriteLine($"--- Available Blocks In {newDormName} ---");
+            foreach (var b in blocksInDorm) Console.WriteLine($"- Name:{b.Name} ,Floors:{b.Floors} ,Capacity:{b.Capacity} ");
+            Console.Write($"New Block Name ({item.BlockName}) : ");
+            string newBlockName = Console.ReadLine();
+            if (string.IsNullOrWhiteSpace(newBlockName)) newBlockName = item.BlockName;
+            if (!blocksInDorm.Exists(b => b.Name.Equals(newBlockName, StringComparison.OrdinalIgnoreCase))) { Console.WriteLine("Error: Block Not Found In This Dormitory."); return; }
+
+            var roomsInBlock = roomManager.Rooms.Where(r => r.BlockName.Equals(newBlockName, StringComparison.OrdinalIgnoreCase)).ToList();
+            if (!roomsInBlock.Any()) { Console.WriteLine("Error: No Rooms Found In This Block."); return; }
+            Console.WriteLine($"--- Available Rooms In {newBlockName} ---");
+            var roomsByFloor = roomsInBlock.GroupBy(r => r.Floor).OrderBy(g => g.Key);
+            foreach (var floorGroup in roomsByFloor)
+            {
+                var roomNumbers = floorGroup.Select(r => int.Parse(r.RoomNumber)).OrderBy(n => n).ToList();
+                if (roomNumbers.Any()) Console.WriteLine($"- Floor {floorGroup.Key}: Rooms From {roomNumbers.First()} To {roomNumbers.Last()}");
+            }
+            Console.Write($"New Room Number ({item.RoomNumber}) : ");
+            string newRoomNumber = Console.ReadLine();
+            if (string.IsNullOrWhiteSpace(newRoomNumber)) newRoomNumber = item.RoomNumber;
+            if (!roomsInBlock.Exists(r => r.RoomNumber == newRoomNumber)) { Console.WriteLine("Error: This Room Number Not Found In This Block."); return; }
+
+            // Type Edit
+            Console.WriteLine("Item Types: 100 (Carpet), 200 (Refrigerator), 300 (Television)");
+            Console.Write($"New Item Type Code ({item.PartNumber.Substring(0, 3)}) : ");
+            var newItemTypeCode = Console.ReadLine();
+            if (string.IsNullOrWhiteSpace(newItemTypeCode))
+            {
+                newItemTypeCode = item.PartNumber.Substring(0, 3);
+            }
+            else if (newItemTypeCode != "100" && newItemTypeCode != "200" && newItemTypeCode != "300")
+            {
+                Console.WriteLine("Error: Invalid Item Type Code. Update Failed.");
+                return;
+            }
+
+            bool locationChanged = newDormName != item.DormitoryName || newBlockName != item.BlockName || newRoomNumber != item.RoomNumber;
+            bool typeChanged = newItemTypeCode != item.PartNumber.Substring(0, 3);
+
+            if (!locationChanged && !typeChanged)
+            {
+                Console.WriteLine("No Changes Were Made.");
+                return;
+            }
+
+            var oldItem = new RoomItem(item.PartNumber, item.DormitoryName, item.BlockName, item.RoomNumber);
+
+            item.DormitoryName = newDormName;
+            item.BlockName = newBlockName;
+            item.RoomNumber = newRoomNumber;
+
+            if (typeChanged || newRoomNumber != oldItem.RoomNumber)
+            {
+                item.PartNumber = GenerateUniquePartNumber(newItemTypeCode, newRoomNumber);
+            }
+
+            oldItem.Delete();
+            item.Save();
+
+            Console.WriteLine("Room Item Updated Successfully.");
         }
     }
 
@@ -444,66 +705,6 @@ namespace DormitorySystem
             Console.WriteLine($"- {roomsPerFloor * block.Floors} Rooms Were Created For Block '{block.Name}' .");
         }
 
-        public void UpdateBlockStructure(Block block, RoomManager roomManager, StudentManager studentManager)
-        {
-            var studentsInBlock = studentManager.Students
-                .Where(s => s.BlockName.Equals(block.Name, StringComparison.OrdinalIgnoreCase))
-                .ToList();
-
-            if (studentsInBlock.Any())
-            {
-                foreach (var student in studentsInBlock)
-                {
-                    student.BlockName = null;
-                    student.RoomNumber = null;
-                    student.Save();
-                }
-                Console.WriteLine($"{studentsInBlock.Count} Students Have Been Unassigned From Their Rooms .");
-            }
-
-       
-            var roomsToRemove = roomManager.Rooms
-                .Where(r => r.BlockName.Equals(block.Name, StringComparison.OrdinalIgnoreCase))
-                .ToList();
-
-            using (var conn = Database.GetConnection())
-            using (var transaction = conn.BeginTransaction())
-            {
-                var cmd = new SQLiteCommand("DELETE FROM Rooms WHERE BlockName = @blockName", conn, transaction);
-                cmd.Parameters.AddWithValue("@blockName", block.Name);
-                cmd.ExecuteNonQuery();
-                transaction.Commit();
-            }
-
-            foreach (var room in roomsToRemove)
-            {
-                roomManager.Rooms.Remove(room);
-            }
-            Console.WriteLine($"{roomsToRemove.Count} Old Rooms Have Been Removed.");
- 
-            const int roomCapacity = 6;
-            int capacityPerFloor = block.Capacity / block.Floors;
-            int roomsPerFloor = capacityPerFloor / roomCapacity;
-
-            if (roomsPerFloor > 0)
-            {
-                for (int floor = 1; floor <= block.Floors; floor++)
-                {
-                    for (int roomIndex = 1; roomIndex <= roomsPerFloor; roomIndex++)
-                    {
-                        string roomNumber = ((floor * 100) + roomIndex).ToString();
-                        Room newRoom = new Room(roomNumber, floor, roomCapacity, block.Name);
-                        roomManager.Add(newRoom);
-                    }
-                }
-                Console.WriteLine($"{roomsPerFloor * block.Floors} New Rooms Were Created For Block '{block.Name}' .");
-            }
-            else
-            {
-                Console.WriteLine("Warning: Block Capacity Is Too Low To Create Any Rooms On Each Floor.");
-            }
-        }
-
         public void List(RoomManager roomManager)
         {
             Console.WriteLine("--- List of All Blocks ---");
@@ -522,20 +723,22 @@ namespace DormitorySystem
                 }
             }
         }
-        public void Remove(string blockName, RoomManager roomManager, StudentManager studentManager, PersonItemManager itemManager)
+        public void Remove(string blockName, RoomManager roomManager, StudentManager studentManager, PersonItemManager itemManager, RoomItemManager roomItemManager)
         {
             var block = Blocks.Find(b => b.Name.Equals(blockName, StringComparison.OrdinalIgnoreCase));
             if (block == null) { Console.WriteLine("Error: Block Not Found."); return; }
-            Console.Write($"Are You Sure You Want To Remove Block {block.Name}? This Will Remove All (rooms, students,studetnt items,rooms items) (y/n) : ");
+            Console.Write($"Are You Sure You Want To Remove Block {block.Name}? This Will Remove All (Rooms, Students, Student Items, Room Items) (y/n) : ");
             if (Console.ReadLine()?.ToLower() != "y") { Console.WriteLine("Deletion Cancelled ."); return; }
 
             block.Delete();
+
             var studentsInBlock = studentManager.Students.Where(s => s.BlockName.Equals(block.Name, StringComparison.OrdinalIgnoreCase)).ToList();
             foreach (var student in studentsInBlock)
             {
                 itemManager.RemoveByStudent(student.StudentCode);
                 studentManager.Students.Remove(student);
             }
+            roomItemManager.RemoveByBlock(block.Name);
             roomManager.RemoveByBlock(block.Name);
             Blocks.Remove(block);
             Console.WriteLine($"Block {blockName} And All Its Contents Removed Successfully .");
@@ -593,18 +796,17 @@ namespace DormitorySystem
         {
             foreach (var d in Dorms) { Console.WriteLine($"- Name: {d.Name}, Address: {d.Address}, Supervisor Code: {d.SupervisorCode}"); }
         }
-        public void Remove(string dormName, BlockManager blockManager, RoomManager roomManager, StudentManager studentManager, PersonItemManager itemManager)
+        public void Remove(string dormName, BlockManager blockManager, RoomManager roomManager, StudentManager studentManager, PersonItemManager itemManager, RoomItemManager roomItemManager)
         {
             var dorm = Dorms.Find(d => d.Name.Equals(dormName, StringComparison.OrdinalIgnoreCase));
             if (dorm == null) { Console.WriteLine("Error: Dormitory Not Found."); return; }
-            Console.Write($"Are You Sure You Want To Remove Dormitory {dorm.Name}? This Will Remove ALL (blocks, rooms, students,student item,room items) (y/n) : ");
+            Console.Write($"Are You Sure You Want To Remove Dormitory {dorm.Name}? This Will Remove ALL (Blocks, Rooms, Students, Student Items, Room Items) (y/n) : ");
             if (Console.ReadLine()?.ToLower() != "y") { Console.WriteLine("Deletion Cancelled."); return; }
-
 
             var blocksInDorm = blockManager.Blocks.Where(b => b.DormitoryName.Equals(dorm.Name, StringComparison.OrdinalIgnoreCase)).ToList();
             foreach (var block in blocksInDorm)
             {
-                blockManager.Remove(block.Name, roomManager, studentManager, itemManager);
+                blockManager.Remove(block.Name, roomManager, studentManager, itemManager, roomItemManager);
             }
 
             dorm.Delete();

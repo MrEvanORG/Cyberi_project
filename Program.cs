@@ -15,14 +15,14 @@ namespace ConsoleProject
             {
                 text = """
 
-                    Program commands : 
-                    For more information on a specific command, type HELP command-name 
-                        | exit         to exit the program.                               |
-                        | dormitory    show all commands related to dormitories.          |
-                        | block        show all commands related to blocks of a dormitory.|
-                        | person       show all commands related to people and students.  |
-                        | item         show all commands related to student items.        |
-                    example : help item
+                    Program Commands : 
+                    For More Information On A Specific Command, Type HELP command-name 
+                        | exit         To Exit The Program.                               |
+                        | dormitory    Show All Commands Related To Dormitories.          |
+                        | block        Show All Commands Related To Blocks Of A Dormitory.|
+                        | person       Show All Commands Related To People And Students.  |
+                        | item         Show All Commands Related To Student And Room Items. |
+                    Example : help item
 
                     """;
             }
@@ -31,51 +31,52 @@ namespace ConsoleProject
                 switch (parts[1])
                 {
                     default:
-                        text = "Sorry, there is no such subject to show help for !";
+                        text = "Sorry, There Is No Such Subject To Show Help For !";
                         break;
                     case "dormitory":
                         text = """
 
-                            Dormitory commands : 
-                                | exit        back to main menu.                                     |
-                                | list        show list of all dormitories.                          |
-                                | add         add a new dormitory to the program.                    |
-                                | edit [name] edit a dormitory's address or supervisor.              |
-                                | rem [name]  remove a dormitory and all its related blocks/students.|
+                            Dormitory Commands : 
+                                | exit        Back To Main Menu.                                     |
+                                | list        Show List Of All Dormitories.                          |
+                                | add         Add A New Dormitory To The Program.                    |
+                                | edit [name] Edit A Dormitory's Address Or Supervisor.              |
+                                | rem [name]  Remove A Dormitory And All Its Related Contents.       |
 
                             """;
                         break;
                     case "block":
                         text = """
 
-                            Block commands : 
-                                | exit        back to main menu.                                      |
-                                | list        show list of all blocks and their room ranges.          |
-                                | add         add a new block and its rooms automatically.            |
-                                | rem [name]  remove a block and all its related rooms/students.      |
+                            Block Commands : 
+                                | exit        Back To Main Menu.                                      |
+                                | list        Show List Of All Blocks And Their Room Ranges.          |
+                                | add         Add A New Block And Its Rooms Automatically.            |
+                                | rem [name]  Remove A Block And All Its Related Contents.            |
 
                             """;
                         break;
                     case "person":
                         text = """
 
-                            Person commands : 
-                                | exit        back to main menu.                                           |
-                                | list        show list of all people or students.                         |
-                                | add         add a new person or student.                                 |
-                                | edit        edit a person's details or a student's room assignment.      |
-                                | rem         remove a person (and their student record) or just a student.|
+                            Person Commands : 
+                                | exit        Back To Main Menu.                                           |
+                                | list        Show List Of All People Or Students.                         |
+                                | add         Add A New Person Or Student.                                 |
+                                | edit        Edit A Person's Details Or A Student's Room Assignment.      |
+                                | rem         Remove A Person (And Their Student Record) Or Just A Student.|
 
                             """;
                         break;
                     case "item":
                         text = """
 
-                            Item commands : 
-                                | exit              back to main menu.                  |
-                                | list              show list of all items.             |
-                                | add               add a new item for a student.       |
-                                | rem [partNumber]  remove an item by its part number.  |
+                            Item Commands : 
+                                | exit              Back To Main Menu.                                |
+                                | list              Show List Of All Person Or Room Items.            |
+                                | add               Add A New Item For A Student Or A Room.           |
+                                | edit              Edit An Existing Person Or Room Item.             |
+                                | rem               Remove An Item By Its Part Number.                |
 
                             """;
                         break;
@@ -83,7 +84,7 @@ namespace ConsoleProject
             }
             else
             {
-                text = "Invalid help usage.";
+                text = "Invalid Help Usage.";
             }
 
             Console.WriteLine(text);
@@ -91,28 +92,30 @@ namespace ConsoleProject
 
         static void Main(string[] args)
         {
-    
+
             Database.GetConnection().Close();
 
             var personManager = new PersonManager();
             var studentManager = new StudentManager();
-            var itemManager = new PersonItemManager();
+            var personItemManager = new PersonItemManager();
+            var roomItemManager = new RoomItemManager();
             var roomManager = new RoomManager();
             var blockManager = new BlockManager();
             var dormManager = new DormitoryManager();
 
             personManager.LoadAll();
             studentManager.LoadAll();
-            itemManager.LoadAll();
+            personItemManager.LoadAll();
+            roomItemManager.LoadAll();
             roomManager.LoadAll();
             blockManager.LoadAll();
             dormManager.LoadAll();
 
             Console.WriteLine("---   Dormitory Management System  ------------");
-            Console.WriteLine("----   Created by group of cyberi malakoot  ---");
+            Console.WriteLine("----   Created By Group Of Cyberi Malakoot  ---");
             ShowHelp("help");
 
-    
+
             while (true)
             {
                 Console.Write("$ main> ");
@@ -125,19 +128,19 @@ namespace ConsoleProject
                 switch (command)
                 {
                     case "person":
-                        HandlePersonMenu(personManager, studentManager, itemManager, dormManager, blockManager, roomManager);
+                        HandlePersonMenu(personManager, studentManager, personItemManager, dormManager, blockManager, roomManager);
                         break;
 
                     case "dormitory":
-                        HandleDormitoryMenu(dormManager, blockManager, roomManager, studentManager, itemManager, personManager);
+                        HandleDormitoryMenu(dormManager, blockManager, roomManager, studentManager, personItemManager, roomItemManager, personManager);
                         break;
 
                     case "block":
-                        HandleBlockMenu(blockManager, dormManager, roomManager, studentManager, itemManager);
+                        HandleBlockMenu(blockManager, dormManager, roomManager, studentManager, personItemManager, roomItemManager);
                         break;
 
                     case "item":
-                        HandleItemMenu(itemManager, studentManager);
+                        HandleItemMenu(personItemManager, roomItemManager, studentManager, dormManager, blockManager, roomManager);
                         break;
 
                     case "help":
@@ -145,14 +148,13 @@ namespace ConsoleProject
                         break;
 
                     default:
-                        Console.WriteLine("Invalid command. Type 'help' to see available commands.");
+                        Console.WriteLine("Invalid Command. Type 'help' To See Available Commands.");
                         break;
                 }
             }
         }
 
-
-        static void HandleItemMenu(PersonItemManager itemManager, StudentManager studentManager)
+        static void HandleItemMenu(PersonItemManager personItemManager, RoomItemManager roomItemManager, StudentManager studentManager, DormitoryManager dormManager, BlockManager blockManager, RoomManager roomManager)
         {
             while (true)
             {
@@ -165,21 +167,80 @@ namespace ConsoleProject
 
                 switch (command)
                 {
-                    case "add"://ok
-                        AddItem(itemManager, studentManager);
-                        break;
-
-                    case "list"://ok
-                        itemManager.List(studentManager);
-                        break;
-
-                    case "rem"://ok
-                        if (cmdParts.Length < 2)
+                    case "add":
+                        Console.Write("Add An Item For A 'Person' Or A 'Room'? (Person/Room) : ");
+                        var addType = Console.ReadLine()?.Trim().ToLower();
+                        if (addType == "person")
                         {
-                            Console.WriteLine("Usage: rem [partNumber]");
-                            break;
+                            AddPersonItem(personItemManager, studentManager);
                         }
-                        itemManager.Remove(cmdParts[1]);
+                        else if (addType == "room")
+                        {
+                            AddRoomItem(roomItemManager, dormManager, blockManager, roomManager);
+                        }
+                        else
+                        {
+                            Console.WriteLine("Invalid Type . Please Choose 'Person' Or 'Room' .");
+                        }
+                        break;
+
+                    case "list":
+                        Console.Write("List Items For 'Person' Or 'Room'? (Person/Room) : ");
+                        var listType = Console.ReadLine()?.Trim().ToLower();
+                        if (listType == "person")
+                        {
+                            personItemManager.List(studentManager);
+                        }
+                        else if (listType == "room")
+                        {
+                            roomItemManager.List();
+                        }
+                        else
+                        {
+                            Console.WriteLine("Invalid Type . Please Choose 'Person' Or 'Room' .");
+                        }
+                        break;
+
+                    case "edit":
+                        Console.Write("Edit An Item For A 'Person' Or A 'Room'? (Person/Room) : ");
+                        var editType = Console.ReadLine()?.Trim().ToLower();
+                        if (editType == "person")
+                        {
+                            Console.Write("Enter Person Item Part Number To Edit : ");
+                            var partNumber = Console.ReadLine();
+                            personItemManager.Edit(partNumber, studentManager);
+                        }
+                        else if (editType == "room")
+                        {
+                            Console.Write("Enter Room Item Part Number To Edit : ");
+                            var partNumber = Console.ReadLine();
+                            roomItemManager.Edit(partNumber, dormManager, blockManager, roomManager);
+                        }
+                        else
+                        {
+                            Console.WriteLine("Invalid Type . Please Choose 'Person' Or 'Room' .");
+                        }
+                        break;
+
+                    case "rem":
+                        Console.Write("Remove An Item From A 'Person' Or A 'Room'? (Person/Room) : ");
+                        var remType = Console.ReadLine()?.Trim().ToLower();
+                        if (remType == "person")
+                        {
+                            Console.Write("Enter Person Item Part Number To Remove : ");
+                            var partNumber = Console.ReadLine();
+                            personItemManager.Remove(partNumber);
+                        }
+                        else if (remType == "room")
+                        {
+                            Console.Write("Enter Room Item Part Number To Remove : ");
+                            var partNumber = Console.ReadLine();
+                            roomItemManager.Remove(partNumber);
+                        }
+                        else
+                        {
+                            Console.WriteLine("Invalid Type . Please Choose 'Person' Or 'Room' .");
+                        }
                         break;
 
                     case "help":
@@ -187,7 +248,7 @@ namespace ConsoleProject
                         break;
 
                     default:
-                        Console.WriteLine("Invalid command. Use 'add', 'list', 'rem', 'help' or 'exit'.");
+                        Console.WriteLine("Invalid Command. Use 'add', 'list', 'edit', 'rem', 'help' Or 'exit'.");
                         break;
                 }
             }
@@ -206,7 +267,7 @@ namespace ConsoleProject
 
                 switch (command)
                 {
-                    case "add": //OK
+                    case "add":
                         Console.Write("Add A New Person Or Student? (Person/Student) : ");
                         var kind = Console.ReadLine()?.Trim().ToLower();
 
@@ -224,7 +285,7 @@ namespace ConsoleProject
                         }
                         break;
 
-                    case "edit": //ok
+                    case "edit":
                         Console.Write("Edit 'Person' Details Or 'Student' Assignment? (Person/Student) : ");
                         var editType = Console.ReadLine()?.Trim().ToLower();
                         if (editType == "person")
@@ -241,11 +302,11 @@ namespace ConsoleProject
                         }
                         break;
 
-                    case "list": //ok
+                    case "list":
                         ListPeopleAndStudents(personManager, studentManager);
                         break;
 
-                    case "rem"://ok
+                    case "rem":
                         Console.Write("Remove A 'Person' (Including Student Object Too) Or Just A 'Student'? (Person/Student) : ");
                         var remType = Console.ReadLine()?.Trim().ToLower();
                         if (remType == "person")
@@ -277,7 +338,7 @@ namespace ConsoleProject
             }
         }
 
-        static void HandleDormitoryMenu(DormitoryManager dormManager, BlockManager blockManager, RoomManager roomManager, StudentManager studentManager, PersonItemManager itemManager, PersonManager personManager)
+        static void HandleDormitoryMenu(DormitoryManager dormManager, BlockManager blockManager, RoomManager roomManager, StudentManager studentManager, PersonItemManager personItemManager, RoomItemManager roomItemManager, PersonManager personManager)
         {
             while (true)
             {
@@ -290,11 +351,11 @@ namespace ConsoleProject
 
                 switch (command)
                 {
-                    case "add"://OK
+                    case "add":
                         AddDormitory(dormManager, personManager);
                         break;
 
-                    case "edit"://ok
+                    case "edit":
                         if (cmdParts.Length < 2)
                         {
                             Console.WriteLine("Usage: edit [dormitoryName]");
@@ -303,18 +364,18 @@ namespace ConsoleProject
                         EditDormitory(cmdParts[1], dormManager, personManager);
                         break;
 
-                    case "list"://ok
+                    case "list":
                         Console.WriteLine("--- List of All Dormitories ---");
                         dormManager.List();
                         break;
 
-                    case "rem"://ok
+                    case "rem":
                         if (cmdParts.Length < 2)
                         {
                             Console.WriteLine("Usage: rem [dormitoryName]");
                             break;
                         }
-                        dormManager.Remove(cmdParts[1], blockManager, roomManager, studentManager, itemManager);
+                        dormManager.Remove(cmdParts[1], blockManager, roomManager, studentManager, personItemManager, roomItemManager);
                         break;
 
                     case "help":
@@ -328,7 +389,7 @@ namespace ConsoleProject
             }
         }
 
-        static void HandleBlockMenu(BlockManager blockManager, DormitoryManager dormManager, RoomManager roomManager, StudentManager studentManager, PersonItemManager itemManager)
+        static void HandleBlockMenu(BlockManager blockManager, DormitoryManager dormManager, RoomManager roomManager, StudentManager studentManager, PersonItemManager personItemManager, RoomItemManager roomItemManager)
         {
             while (true)
             {
@@ -341,21 +402,21 @@ namespace ConsoleProject
 
                 switch (command)
                 {
-                    case "add"://ok
+                    case "add":
                         AddBlock(blockManager, dormManager, roomManager);
                         break;
 
-                    case "list"://ok
+                    case "list":
                         blockManager.List(roomManager);
                         break;
 
-                    case "rem"://ok
+                    case "rem":
                         if (cmdParts.Length < 2)
                         {
                             Console.WriteLine("Usage: rem [blockName]");
                             break;
                         }
-                        blockManager.Remove(cmdParts[1], roomManager, studentManager, itemManager);
+                        blockManager.Remove(cmdParts[1], roomManager, studentManager, personItemManager, roomItemManager);
                         break;
 
                     case "help":
@@ -521,7 +582,7 @@ namespace ConsoleProject
             Console.WriteLine($"Student Asignmented And Updated Successfully.");
         }
 
-        static void AddItem(PersonItemManager itemManager, StudentManager studentManager)
+        static void AddPersonItem(PersonItemManager itemManager, StudentManager studentManager)
         {
             Console.Write("Enter Student Code To Assign An Item to : ");
             var studentCode = Console.ReadLine();
@@ -542,7 +603,7 @@ namespace ConsoleProject
 
             if (itemTypeCode != "100" && itemTypeCode != "200" && itemTypeCode != "300" && itemTypeCode != "400")
             {
-                Console.WriteLine("Error: Invalid item type code.");
+                Console.WriteLine("Error: Invalid Item Type Code.");
                 return;
             }
 
@@ -558,6 +619,59 @@ namespace ConsoleProject
             var newItem = new PersonItem(partNumber, studentCode);
             itemManager.Add(newItem);
             Console.WriteLine($"Item With PartNumber: '{partNumber}' Created And Assigned To Student ('{studentCode})'.");
+        }
+
+        static void AddRoomItem(RoomItemManager roomItemManager, DormitoryManager dormManager, BlockManager blockManager, RoomManager roomManager)
+        {
+            if (!dormManager.Dorms.Any()) { Console.WriteLine("Error: No Dormitories Available. Please Add A Dormitory First."); return; }
+            Console.WriteLine("--- Available Dormitories ---");
+            dormManager.List();
+            Console.Write("Enter Dormitory Name: ");
+            string dormName = Console.ReadLine();
+            if (!dormManager.Dorms.Exists(d => d.Name.Equals(dormName, StringComparison.OrdinalIgnoreCase))) { Console.WriteLine("Error: Dormitory Not Found."); return; }
+
+            var blocksInDorm = blockManager.Blocks.Where(b => b.DormitoryName.Equals(dormName, StringComparison.OrdinalIgnoreCase)).ToList();
+            if (!blocksInDorm.Any()) { Console.WriteLine("Error: No Blocks Available In This Dormitory."); return; }
+            Console.WriteLine($"--- Available Blocks In {dormName} ---");
+            foreach (var b in blocksInDorm) Console.WriteLine($"- Name:{b.Name} ,Floors:{b.Floors} ,Capacity:{b.Capacity} ");
+            Console.Write("Enter Block Name : ");
+            string blockName = Console.ReadLine();
+            if (!blocksInDorm.Exists(b => b.Name.Equals(blockName, StringComparison.OrdinalIgnoreCase))) { Console.WriteLine("Error: This Block Not Found In This Dormitory."); return; }
+
+            var roomsInBlock = roomManager.Rooms.Where(r => r.BlockName.Equals(blockName, StringComparison.OrdinalIgnoreCase)).ToList();
+            if (!roomsInBlock.Any()) { Console.WriteLine("Error: No Rooms Found In This Block."); return; }
+            Console.WriteLine($"--- Available Rooms In {blockName} ---");
+            var roomsByFloor = roomsInBlock.GroupBy(r => r.Floor).OrderBy(g => g.Key);
+            foreach (var floorGroup in roomsByFloor)
+            {
+                var roomNumbers = floorGroup.Select(r => int.Parse(r.RoomNumber)).OrderBy(n => n).ToList();
+                if (roomNumbers.Any())
+                {
+                    Console.WriteLine($"- Floor {floorGroup.Key}: Rooms From {roomNumbers.First()} To {roomNumbers.Last()}");
+                }
+            }
+
+            Console.Write("Enter Room Number : ");
+            string roomNumber = Console.ReadLine();
+            if (!roomsInBlock.Exists(r => r.RoomNumber == roomNumber)) { Console.WriteLine("Error: This Room Number Not Found In This Block ."); return; }
+
+            Console.WriteLine("Select Item Type:");
+            Console.WriteLine("- 100: (Carpet)");
+            Console.WriteLine("- 200: (Refrigerator)");
+            Console.WriteLine("- 300: (Television)");
+            Console.Write("Enter Item Type Code : ");
+            var itemTypeCode = Console.ReadLine();
+
+            if (itemTypeCode != "100" && itemTypeCode != "200" && itemTypeCode != "300")
+            {
+                Console.WriteLine("Error: Invalid Item Type Code.");
+                return;
+            }
+
+            string partNumber = roomItemManager.GenerateUniquePartNumber(itemTypeCode, roomNumber);
+            var newItem = new RoomItem(partNumber, dormName, blockName, roomNumber);
+            roomItemManager.Add(newItem);
+            Console.WriteLine($"Room Item With PartNumber: '{partNumber}' Created And Assigned To Room '{roomNumber}'.");
         }
 
         static void AddPerson(PersonManager personManager)
