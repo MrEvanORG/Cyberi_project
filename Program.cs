@@ -41,6 +41,7 @@ namespace ConsoleProject
                                 | list        Show List Of All Dormitories.                          |
                                 | add         Add A New Dormitory To The Program.                    |
                                 | edit [name] Edit A Dormitory's Address Or Supervisor.              |
+                                | show [name] Show Detailed Information About A Dormitory.           |
                                 | rem [name]  Remove A Dormitory And All Its Related Contents.       |
 
                             """;
@@ -52,6 +53,7 @@ namespace ConsoleProject
                                 | exit        Back To Main Menu.                                      |
                                 | list        Show List Of All Blocks And Their Room Ranges.          |
                                 | add         Add A New Block And Its Rooms Automatically.            |
+                                | show [name] Show Detailed Information About A Block.                |
                                 | rem [name]  Remove A Block And All Its Related Contents.            |
 
                             """;
@@ -64,6 +66,7 @@ namespace ConsoleProject
                                 | list        Show List Of All People Or Students.                         |
                                 | add         Add A New Person Or Student.                                 |
                                 | edit        Edit A Person's Details Or A Student's Room Assignment.      |
+                                | show [NC]   Show Detailed Information About A Person By National Code.   |
                                 | rem         Remove A Person (And Their Student Record) Or Just A Student.|
 
                             """;
@@ -75,8 +78,10 @@ namespace ConsoleProject
                                 | exit              Back To Main Menu.                                |
                                 | list              Show List Of All Person Or Room Items.            |
                                 | add               Add A New Item For A Student Or A Room.           |
-                                | edit              Edit An Existing Person Or Room Item.             |
-                                | rem               Remove An Item By Its Part Number.                |
+                                | edit [partNum]    Edit An Existing Item By Its Part Number.         |
+                                | show [partNum]    Show Detailed Information About An Item.          |
+                                | roomitems         Show All Items Within A Specific Room.            |
+                                | rem [partNum]     Remove An Item By Its Part Number.                |
 
                             """;
                         break;
@@ -140,7 +145,7 @@ namespace ConsoleProject
                         break;
 
                     case "item":
-                        HandleItemMenu(personItemManager, roomItemManager, studentManager, dormManager, blockManager, roomManager);
+                        HandleItemMenu(personItemManager, roomItemManager, studentManager, dormManager, blockManager, roomManager, personManager);
                         break;
 
                     case "help":
@@ -154,7 +159,7 @@ namespace ConsoleProject
             }
         }
 
-        static void HandleItemMenu(PersonItemManager personItemManager, RoomItemManager roomItemManager, StudentManager studentManager, DormitoryManager dormManager, BlockManager blockManager, RoomManager roomManager)
+        static void HandleItemMenu(PersonItemManager personItemManager, RoomItemManager roomItemManager, StudentManager studentManager, DormitoryManager dormManager, BlockManager blockManager, RoomManager roomManager, PersonManager personManager)
         {
             while (true)
             {
@@ -202,44 +207,45 @@ namespace ConsoleProject
                         break;
 
                     case "edit":
-                        Console.Write("Edit An Item For A 'Person' Or A 'Room'? (Person/Room) : ");
-                        var editType = Console.ReadLine()?.Trim().ToLower();
-                        if (editType == "person")
+                        if (cmdParts.Length < 2) { Console.WriteLine("Usage: edit [partNumber]"); break; }
+                        var partNumToEdit = cmdParts[1];
+                        if (partNumToEdit.Length == 12)
                         {
-                            Console.Write("Enter Person Item Part Number To Edit : ");
-                            var partNumber = Console.ReadLine();
-                            personItemManager.Edit(partNumber, studentManager);
+                            personItemManager.Edit(partNumToEdit, studentManager);
                         }
-                        else if (editType == "room")
+                        else if (partNumToEdit.Length == 11)
                         {
-                            Console.Write("Enter Room Item Part Number To Edit : ");
-                            var partNumber = Console.ReadLine();
-                            roomItemManager.Edit(partNumber, dormManager, blockManager, roomManager);
+                            roomItemManager.Edit(partNumToEdit, dormManager, blockManager, roomManager);
                         }
                         else
                         {
-                            Console.WriteLine("Invalid Type . Please Choose 'Person' Or 'Room' .");
+                            Console.WriteLine("Error: Invalid Part Number Length. Person Items Are 12 Digits, Room Items Are 11.");
                         }
                         break;
 
+                    case "show":
+                        if (cmdParts.Length < 2) { Console.WriteLine("Usage: show [partNumber]"); break; }
+                        ShowItem(cmdParts[1], personItemManager, roomItemManager, studentManager, personManager);
+                        break;
+
+                    case "roomitems":
+                        ShowItemsInRoom(dormManager, blockManager, roomManager, studentManager, personItemManager, roomItemManager, personManager);
+                        break;
+
                     case "rem":
-                        Console.Write("Remove An Item From A 'Person' Or A 'Room'? (Person/Room) : ");
-                        var remType = Console.ReadLine()?.Trim().ToLower();
-                        if (remType == "person")
+                        if (cmdParts.Length < 2) { Console.WriteLine("Usage: rem [partNumber]"); break; }
+                        var partNumToRemove = cmdParts[1];
+                        if (partNumToRemove.Length == 12)
                         {
-                            Console.Write("Enter Person Item Part Number To Remove : ");
-                            var partNumber = Console.ReadLine();
-                            personItemManager.Remove(partNumber);
+                            personItemManager.Remove(partNumToRemove);
                         }
-                        else if (remType == "room")
+                        else if (partNumToRemove.Length == 11)
                         {
-                            Console.Write("Enter Room Item Part Number To Remove : ");
-                            var partNumber = Console.ReadLine();
-                            roomItemManager.Remove(partNumber);
+                            roomItemManager.Remove(partNumToRemove);
                         }
                         else
                         {
-                            Console.WriteLine("Invalid Type . Please Choose 'Person' Or 'Room' .");
+                            Console.WriteLine("Error: Invalid Part Number Length. Person Items Are 12 Digits, Room Items Are 11.");
                         }
                         break;
 
@@ -248,7 +254,7 @@ namespace ConsoleProject
                         break;
 
                     default:
-                        Console.WriteLine("Invalid Command. Use 'add', 'list', 'edit', 'rem', 'help' Or 'exit'.");
+                        Console.WriteLine("Invalid Command. Use 'add', 'list', 'edit', 'show', 'roomitems', 'rem', 'help' Or 'exit'.");
                         break;
                 }
             }
@@ -306,6 +312,15 @@ namespace ConsoleProject
                         ListPeopleAndStudents(personManager, studentManager);
                         break;
 
+                    case "show":
+                        if (cmdParts.Length < 2)
+                        {
+                            Console.WriteLine("Usage: show [nationalCode]");
+                            break;
+                        }
+                        personManager.Show(cmdParts[1], studentManager, itemManager);
+                        break;
+
                     case "rem":
                         Console.Write("Remove A 'Person' (Including Student Object Too) Or Just A 'Student'? (Person/Student) : ");
                         var remType = Console.ReadLine()?.Trim().ToLower();
@@ -332,7 +347,7 @@ namespace ConsoleProject
                         break;
 
                     default:
-                        Console.WriteLine("Invalid command. Use 'add', 'list', 'edit', 'rem', 'help' or 'exit'.");
+                        Console.WriteLine("Invalid command. Use 'add', 'list', 'edit', 'show', 'rem', 'help' or 'exit'.");
                         break;
                 }
             }
@@ -369,6 +384,15 @@ namespace ConsoleProject
                         dormManager.List();
                         break;
 
+                    case "show":
+                        if (cmdParts.Length < 2)
+                        {
+                            Console.WriteLine("Usage: show [dormitoryName]");
+                            break;
+                        }
+                        dormManager.Show(cmdParts[1], blockManager, personManager, studentManager);
+                        break;
+
                     case "rem":
                         if (cmdParts.Length < 2)
                         {
@@ -383,7 +407,7 @@ namespace ConsoleProject
                         break;
 
                     default:
-                        Console.WriteLine("Invalid command. Use 'add', 'list', 'edit', 'rem', 'help' or 'exit'.");
+                        Console.WriteLine("Invalid command. Use 'add', 'list', 'edit', 'show', 'rem', 'help' or 'exit'.");
                         break;
                 }
             }
@@ -410,6 +434,15 @@ namespace ConsoleProject
                         blockManager.List(roomManager);
                         break;
 
+                    case "show":
+                        if (cmdParts.Length < 2)
+                        {
+                            Console.WriteLine("Usage: show [blockName]");
+                            break;
+                        }
+                        blockManager.Show(cmdParts[1], roomManager, studentManager);
+                        break;
+
                     case "rem":
                         if (cmdParts.Length < 2)
                         {
@@ -424,10 +457,127 @@ namespace ConsoleProject
                         break;
 
                     default:
-                        Console.WriteLine("Invalid command. Use 'add', 'list', 'rem', 'help' or 'exit'.");
+                        Console.WriteLine("Invalid command. Use 'add', 'list', 'show', 'rem', 'help' or 'exit'.");
                         break;
                 }
             }
+        }
+
+        static void ShowItemsInRoom(DormitoryManager dormManager, BlockManager blockManager, RoomManager roomManager, StudentManager studentManager, PersonItemManager personItemManager, RoomItemManager roomItemManager, PersonManager personManager)
+        {
+            if (!dormManager.Dorms.Any()) { Console.WriteLine("Error: No Dormitories Available. Please Add A Dormitory First."); return; }
+            Console.WriteLine("--- Available Dormitories ---");
+            dormManager.List();
+            Console.Write("Enter Dormitory Name: ");
+            string dormName = Console.ReadLine();
+            if (!dormManager.Dorms.Exists(d => d.Name.Equals(dormName, StringComparison.OrdinalIgnoreCase))) { Console.WriteLine("Error: Dormitory Not Found."); return; }
+
+            var blocksInDorm = blockManager.Blocks.Where(b => b.DormitoryName.Equals(dormName, StringComparison.OrdinalIgnoreCase)).ToList();
+            if (!blocksInDorm.Any()) { Console.WriteLine("Error: No Blocks Available In This Dormitory."); return; }
+            Console.WriteLine($"--- Available Blocks In {dormName} ---");
+            foreach (var b in blocksInDorm) Console.WriteLine($"- Name:{b.Name} ,Floors:{b.Floors} ,Capacity:{b.Capacity} ");
+            Console.Write("Enter Block Name : ");
+            string blockName = Console.ReadLine();
+            if (!blocksInDorm.Exists(b => b.Name.Equals(blockName, StringComparison.OrdinalIgnoreCase))) { Console.WriteLine("Error: This Block Not Found In This Dormitory."); return; }
+
+            var roomsInBlock = roomManager.Rooms.Where(r => r.BlockName.Equals(blockName, StringComparison.OrdinalIgnoreCase)).ToList();
+            if (!roomsInBlock.Any()) { Console.WriteLine("Error: No Rooms Found In This Block."); return; }
+            Console.WriteLine($"--- Available Rooms In {blockName} ---");
+            var roomsByFloor = roomsInBlock.GroupBy(r => r.Floor).OrderBy(g => g.Key);
+            foreach (var floorGroup in roomsByFloor)
+            {
+                var roomNumbers = floorGroup.Select(r => int.Parse(r.RoomNumber)).OrderBy(n => n).ToList();
+                if (roomNumbers.Any())
+                {
+                    Console.WriteLine($"- Floor {floorGroup.Key}: Rooms From {roomNumbers.First()} To {roomNumbers.Last()}");
+                }
+            }
+
+            Console.Write("Enter Room Number : ");
+            string roomNumber = Console.ReadLine();
+            if (!roomsInBlock.Exists(r => r.RoomNumber == roomNumber)) { Console.WriteLine("Error: This Room Number Not Found In This Block ."); return; }
+
+            Console.WriteLine($"\n--- Showing All Items For Room {roomNumber} In Block {blockName} ---");
+
+            var roomItems = roomItemManager.Items.Where(i => i.BlockName == blockName && i.RoomNumber == roomNumber).ToList();
+            Console.WriteLine("\n--- Room Items ---");
+            if (roomItems.Any())
+            {
+                foreach (var item in roomItems)
+                {
+                    Console.WriteLine($"- Part Number: {item.PartNumber}, Type: {item.GetItemType()}");
+                }
+            }
+            else
+            {
+                Console.WriteLine("No General Items Found In This Room.");
+            }
+
+            var studentsInRoom = studentManager.Students.Where(s => s.BlockName == blockName && s.RoomNumber == roomNumber).ToList();
+            Console.WriteLine("\n--- Students And Their Personal Items ---");
+            if (studentsInRoom.Any())
+            {
+                foreach (var student in studentsInRoom)
+                {
+                    var person = personManager.People.Find(p => p.NationalCode == student.NationalCode);
+                    string studentName = person != null ? $"{person.FirstName} {person.LastName}" : "Unknown";
+                    Console.WriteLine($"\n- Student: {studentName} (Code: {student.StudentCode})");
+
+                    var personItems = personItemManager.Items.Where(i => i.StudentCode == student.StudentCode).ToList();
+                    if (personItems.Any())
+                    {
+                        foreach (var item in personItems)
+                        {
+                            Console.WriteLine($"  - Part Number: {item.PartNumber}, Type: {item.GetItemType()}");
+                        }
+                    }
+                    else
+                    {
+                        Console.WriteLine("  - This Student Has No Personal Items.");
+                    }
+                }
+            }
+            else
+            {
+                Console.WriteLine("No Students Found In This Room.");
+            }
+        }
+
+        static void ShowItem(string partNumber, PersonItemManager personItemManager, RoomItemManager roomItemManager, StudentManager studentManager, PersonManager personManager)
+        {
+            if (partNumber.Length == 12)
+            {
+                var personItem = personItemManager.Items.Find(i => i.PartNumber.Equals(partNumber, StringComparison.OrdinalIgnoreCase));
+                if (personItem != null)
+                {
+                    Console.WriteLine($"--- Details For Person Item: {personItem.PartNumber} ---");
+                    Console.WriteLine($"- Item Type: {personItem.GetItemType()}");
+                    var student = studentManager.Students.Find(s => s.StudentCode == personItem.StudentCode);
+                    if (student != null)
+                    {
+                        Console.WriteLine($"- Location: {student.DormitoryName}/{student.BlockName}/{student.RoomNumber}");
+                        personManager.Show(student.NationalCode, studentManager, personItemManager);
+                    }
+                    else
+                    {
+                        Console.WriteLine($"- Owner Student Code: {personItem.StudentCode} (Student Not Found)");
+                    }
+                    return;
+                }
+            }
+            else if (partNumber.Length == 11)
+            {
+                var roomItem = roomItemManager.Items.Find(i => i.PartNumber.Equals(partNumber, StringComparison.OrdinalIgnoreCase));
+                if (roomItem != null)
+                {
+                    Console.WriteLine($"--- Details For Room Item: {roomItem.PartNumber} ---");
+                    Console.WriteLine($"- Item Type: {roomItem.GetItemType()}");
+                    Console.WriteLine($"- Location: {roomItem.DormitoryName}/{roomItem.BlockName}/{roomItem.RoomNumber}");
+                    return;
+                }
+            }
+
+            Console.WriteLine("Error: Item With This Part Number Not Found.");
         }
 
         static void EditDormitory(string dormName, DormitoryManager dormManager, PersonManager personManager)
@@ -449,19 +599,33 @@ namespace ConsoleProject
                 dorm.Address = newAddress;
             }
 
-            Console.Write($"New Supervisor's National Code ({dorm.SupervisorCode}): ");
-            var newSupervisorCode = Console.ReadLine();
-            if (!string.IsNullOrWhiteSpace(newSupervisorCode))
+            string newSupervisorCode;
+            while (true)
             {
-                if (!personManager.People.Exists(p => p.NationalCode == newSupervisorCode))
+                Console.Write($"New Supervisor's National Code ({dorm.SupervisorCode}): ");
+                newSupervisorCode = Console.ReadLine();
+                if (string.IsNullOrWhiteSpace(newSupervisorCode))
                 {
-                    Console.WriteLine("Error: No Person Found With This National Code. Update Failed .");
-                    dormManager.LoadAll();
-                    return;
+                    newSupervisorCode = dorm.SupervisorCode;
+                    break;
                 }
-                dorm.SupervisorCode = newSupervisorCode;
+                if (newSupervisorCode.Length == 10 && newSupervisorCode.All(char.IsDigit))
+                {
+                    if (!personManager.People.Exists(p => p.NationalCode == newSupervisorCode))
+                    {
+                        Console.WriteLine("Error: No Person Found With This National Code.");
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("Error: National Code Must Be 10 Digits.");
+                }
             }
-
+            dorm.SupervisorCode = newSupervisorCode;
             dorm.Save();
             Console.WriteLine("Dormitory Updated Successfully.");
         }
@@ -502,12 +666,23 @@ namespace ConsoleProject
                 person.Address = newAddress;
             }
 
-            Console.Write($"New Phone ({person.Phone}) : ");
-            var newPhone = Console.ReadLine();
-            if (!string.IsNullOrWhiteSpace(newPhone))
+            string newPhone;
+            while (true)
             {
-                person.Phone = newPhone;
+                Console.Write($"New Phone ({person.Phone}) : ");
+                newPhone = Console.ReadLine();
+                if (string.IsNullOrWhiteSpace(newPhone))
+                {
+                    newPhone = person.Phone;
+                    break;
+                }
+                if (newPhone.Length == 11 && newPhone.All(char.IsDigit))
+                {
+                    break;
+                }
+                Console.WriteLine("Error: Phone Number Must Be 11 Digits.");
             }
+            person.Phone = newPhone;
 
             person.Save();
             Console.WriteLine("Person Details Updated Successfully.");
@@ -584,13 +759,26 @@ namespace ConsoleProject
 
         static void AddPersonItem(PersonItemManager itemManager, StudentManager studentManager)
         {
-            Console.Write("Enter Student Code To Assign An Item to : ");
-            var studentCode = Console.ReadLine();
-
-            if (!studentManager.Students.Exists(s => s.StudentCode == studentCode))
+            string studentCode;
+            while (true)
             {
-                Console.WriteLine("Error: Student With This Code Not Found .");
-                return;
+                Console.Write("Enter Student Code To Assign An Item to : ");
+                studentCode = Console.ReadLine();
+                if (studentCode.Length == 9 && studentCode.All(char.IsDigit))
+                {
+                    if (studentManager.Students.Exists(s => s.StudentCode == studentCode))
+                    {
+                        break;
+                    }
+                    else
+                    {
+                        Console.WriteLine("Error: Student With This Code Not Found .");
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("Error: Student Code Must Be 9 Digits.");
+                }
             }
 
             Console.WriteLine("Select Item Type:");
@@ -676,21 +864,46 @@ namespace ConsoleProject
 
         static void AddPerson(PersonManager personManager)
         {
-            Console.Write("Enter National Code : ");
-            var code = Console.ReadLine();
-            if (string.IsNullOrWhiteSpace(code) || personManager.People.Exists(p => p.NationalCode == code))
+            string code;
+            while (true)
             {
-                Console.WriteLine("Error: A Person With This National Code Already Exists Or The Code Is Invalid .");
-                return;
+                Console.Write("Enter National Code : ");
+                code = Console.ReadLine();
+                if (code.Length == 10 && code.All(char.IsDigit))
+                {
+                    if (personManager.People.Exists(p => p.NationalCode == code))
+                    {
+                        Console.WriteLine("Error: A Person With This National Code Already Exists.");
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("Error: National Code Must Be 10 Digits.");
+                }
             }
+
             Console.Write("Enter First Name : ");
             var fname = Console.ReadLine();
             Console.Write("Enter Last Name : ");
             var lname = Console.ReadLine();
             Console.Write("Enter Address : ");
             var addr = Console.ReadLine();
-            Console.Write("Enter Phone Number : ");
-            var phone = Console.ReadLine();
+
+            string phone;
+            while (true)
+            {
+                Console.Write("Enter Phone Number : ");
+                phone = Console.ReadLine();
+                if (phone.Length == 11 && phone.All(char.IsDigit))
+                {
+                    break;
+                }
+                Console.WriteLine("Error: Phone Number Must Be 11 Digits.");
+            }
 
             var p = new Person(fname, lname, code, addr, phone);
             personManager.Add(p);
@@ -717,12 +930,26 @@ namespace ConsoleProject
                 if (person == null) return;
             }
 
-            Console.Write("Enter Student Code : ");
-            var sc = Console.ReadLine();
-            if (string.IsNullOrWhiteSpace(sc) || studentManager.Students.Exists(s => s.StudentCode == sc))
+            string sc;
+            while (true)
             {
-                Console.WriteLine("Error: A Student With This Student Code Already Exists Or The Code Is Invalid.");
-                return;
+                Console.Write("Enter Student Code : ");
+                sc = Console.ReadLine();
+                if (sc.Length == 9 && sc.All(char.IsDigit))
+                {
+                    if (studentManager.Students.Exists(s => s.StudentCode == sc))
+                    {
+                        Console.WriteLine("Error: A Student With This Student Code Already Exists.");
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("Error: Student Code Must Be 9 Digits.");
+                }
             }
 
             if (!dormManager.Dorms.Any())
@@ -836,12 +1063,27 @@ namespace ConsoleProject
             }
             Console.Write("Enter Address : ");
             string addr = Console.ReadLine();
-            Console.Write("Enter Supervisor's National Code : ");
-            string sup = Console.ReadLine();
-            if (!personManager.People.Exists(p => p.NationalCode == sup))
+
+            string sup;
+            while (true)
             {
-                Console.WriteLine("Error: Supervisor With This National Code Not Found. Please Register The Person First .");
-                return;
+                Console.Write("Enter Supervisor's National Code : ");
+                sup = Console.ReadLine();
+                if (sup.Length == 10 && sup.All(char.IsDigit))
+                {
+                    if (!personManager.People.Exists(p => p.NationalCode == sup))
+                    {
+                        Console.WriteLine("Error: Supervisor With This National Code Not Found. Please Register The Person First .");
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("Error: National Code Must Be 10 Digits.");
+                }
             }
 
             dormManager.Add(new Dormitory(name, addr, sup));

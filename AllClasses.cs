@@ -173,16 +173,31 @@ namespace DormitorySystem
 
             Console.WriteLine($"Editing Item {item.PartNumber}. Press Enter To Keep Current Value.");
 
-            Console.Write($"New Student Code ({item.StudentCode}) : ");
-            var newStudentCode = Console.ReadLine();
-            if (string.IsNullOrWhiteSpace(newStudentCode))
+            string newStudentCode;
+            while (true)
             {
-                newStudentCode = item.StudentCode;
-            }
-            else if (!studentManager.Students.Exists(s => s.StudentCode == newStudentCode))
-            {
-                Console.WriteLine("Error: Student With This Code Not Found. Update Failed.");
-                return;
+                Console.Write($"New Student Code ({item.StudentCode}) : ");
+                newStudentCode = Console.ReadLine();
+                if (string.IsNullOrWhiteSpace(newStudentCode))
+                {
+                    newStudentCode = item.StudentCode;
+                    break;
+                }
+                if (newStudentCode.Length == 9 && newStudentCode.All(char.IsDigit))
+                {
+                    if (!studentManager.Students.Exists(s => s.StudentCode == newStudentCode))
+                    {
+                        Console.WriteLine("Error: Student With This Code Not Found.");
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("Error: Student Code Must Be 9 Digits.");
+                }
             }
 
             Console.WriteLine("Item Types: 100 (Bed), 200 (Closet), 300 (Desk), 400 (Chair)");
@@ -299,7 +314,7 @@ namespace DormitorySystem
             string partNumber;
             do
             {
-                string randomSuffix = random.Next(100000, 999999).ToString();
+                string randomSuffix = random.Next(10000, 99999).ToString();
                 partNumber = $"{itemTypeCode}{roomNumber}{randomSuffix}";
             } while (Items.Exists(i => i.PartNumber == partNumber));
             return partNumber;
@@ -348,7 +363,6 @@ namespace DormitorySystem
 
             Console.WriteLine($"Editing Item {item.PartNumber}. Press Enter To Keep Current Value.");
 
-            // Location Edit
             Console.WriteLine("--- Select New Location ---");
             if (!dormManager.Dorms.Any()) { Console.WriteLine("Error: No Dormitories Available."); return; }
             Console.WriteLine("--- Available Dormitories ---");
@@ -381,7 +395,6 @@ namespace DormitorySystem
             if (string.IsNullOrWhiteSpace(newRoomNumber)) newRoomNumber = item.RoomNumber;
             if (!roomsInBlock.Exists(r => r.RoomNumber == newRoomNumber)) { Console.WriteLine("Error: This Room Number Not Found In This Block."); return; }
 
-            // Type Edit
             Console.WriteLine("Item Types: 100 (Carpet), 200 (Refrigerator), 300 (Television)");
             Console.Write($"New Item Type Code ({item.PartNumber.Substring(0, 3)}) : ");
             var newItemTypeCode = Console.ReadLine();
@@ -566,6 +579,48 @@ namespace DormitorySystem
             People.Remove(person);
             Console.WriteLine($"Person And Student Object With NationalCode :{person.NationalCode} Removed Successfully.");
         }
+
+        public void Show(string nationalCode, StudentManager studentManager, PersonItemManager personItemManager)
+        {
+            var person = People.Find(p => p.NationalCode.Equals(nationalCode, StringComparison.OrdinalIgnoreCase));
+            if (person == null)
+            {
+                Console.WriteLine("Error: Person Not Found .");
+                return;
+            }
+
+            Console.WriteLine($"--- Details For Person: {person.FirstName} {person.LastName} ---");
+            Console.WriteLine($"- National Code: {person.NationalCode}");
+            Console.WriteLine($"- Full Name: {person.FirstName} {person.LastName}");
+            Console.WriteLine($"- Address: {person.Address}");
+            Console.WriteLine($"- Phone: {person.Phone}");
+
+            var student = studentManager.Students.Find(s => s.NationalCode == person.NationalCode);
+            if (student != null)
+            {
+                Console.WriteLine("- This Person Is Also A Student.");
+                Console.WriteLine($"  - Student Code: {student.StudentCode}");
+                Console.WriteLine($"  - Location: {student.DormitoryName}/{student.BlockName}/{student.RoomNumber}");
+
+                var items = personItemManager.Items.Where(i => i.StudentCode == student.StudentCode).ToList();
+                if (items.Any())
+                {
+                    Console.WriteLine("  - Personal Items:");
+                    foreach (var item in items)
+                    {
+                        Console.WriteLine($"    - Part Number: {item.PartNumber}, Type: {item.GetItemType()}");
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("  - This Student Has No Personal Items.");
+                }
+            }
+            else
+            {
+                Console.WriteLine("- This Person Is Not A Student.");
+            }
+        }
     }
 
     public class Room : Deletable
@@ -743,6 +798,43 @@ namespace DormitorySystem
             Blocks.Remove(block);
             Console.WriteLine($"Block {blockName} And All Its Contents Removed Successfully .");
         }
+
+        public void Show(string blockName, RoomManager roomManager, StudentManager studentManager)
+        {
+            var block = Blocks.Find(b => b.Name.Equals(blockName, StringComparison.OrdinalIgnoreCase));
+            if (block == null)
+            {
+                Console.WriteLine("Error: Block Not Found.");
+                return;
+            }
+
+            Console.WriteLine($"--- Details For Block: {block.Name} ---");
+            Console.WriteLine($"- Dormitory: {block.DormitoryName}");
+            Console.WriteLine($"- Floors: {block.Floors}");
+            Console.WriteLine($"- Total Capacity: {block.Capacity}");
+
+            var studentsInBlock = studentManager.Students.Count(s => s.BlockName.Equals(block.Name, StringComparison.OrdinalIgnoreCase));
+            Console.WriteLine($"- Occupancy: {studentsInBlock} Used, {block.Capacity - studentsInBlock} Free");
+
+            var roomsInBlock = roomManager.Rooms.Where(r => r.BlockName.Equals(block.Name, StringComparison.OrdinalIgnoreCase)).ToList();
+            if (roomsInBlock.Any())
+            {
+                var roomsByFloor = roomsInBlock.GroupBy(r => r.Floor).OrderBy(g => g.Key);
+                Console.WriteLine("- Room Ranges:");
+                foreach (var floorGroup in roomsByFloor)
+                {
+                    var roomNumbers = floorGroup.Select(r => int.Parse(r.RoomNumber)).OrderBy(n => n).ToList();
+                    if (roomNumbers.Any())
+                    {
+                        Console.WriteLine($"  - Floor {floorGroup.Key}: From {roomNumbers.First()} To {roomNumbers.Last()}");
+                    }
+                }
+            }
+            else
+            {
+                Console.WriteLine("- No Rooms Found For This Block.");
+            }
+        }
     }
 
     public class Dormitory : Deletable
@@ -812,6 +904,38 @@ namespace DormitorySystem
             dorm.Delete();
             Dorms.Remove(dorm);
             Console.WriteLine($"Dormitory {dormName} And All Its contents Removed Successfully.");
+        }
+
+        public void Show(string dormName, BlockManager blockManager, PersonManager personManager, StudentManager studentManager)
+        {
+            var dorm = Dorms.Find(d => d.Name.Equals(dormName, StringComparison.OrdinalIgnoreCase));
+            if (dorm == null)
+            {
+                Console.WriteLine("Error: Dormitory Not Found.");
+                return;
+            }
+
+            Console.WriteLine($"--- Details For Dormitory: {dorm.Name} ---");
+            Console.WriteLine($"- Address: {dorm.Address}");
+
+            var supervisor = personManager.People.Find(p => p.NationalCode == dorm.SupervisorCode);
+            if (supervisor != null)
+            {
+                Console.WriteLine($"- Supervisor: {supervisor.FirstName} {supervisor.LastName} (NC: {supervisor.NationalCode})");
+                var supervisorAsStudent = studentManager.Students.Find(s => s.NationalCode == supervisor.NationalCode);
+                if (supervisorAsStudent != null)
+                {
+                    Console.WriteLine($"  - Is Also A Student. Location: {supervisorAsStudent.DormitoryName}/{supervisorAsStudent.BlockName}/{supervisorAsStudent.RoomNumber}");
+                }
+            }
+            else
+            {
+                Console.WriteLine($"- Supervisor Code: {dorm.SupervisorCode} (Person Not Found)");
+            }
+
+            var blocksInDorm = blockManager.Blocks.Where(b => b.DormitoryName.Equals(dorm.Name, StringComparison.OrdinalIgnoreCase)).ToList();
+            Console.WriteLine($"- Block Count: {blocksInDorm.Count}");
+            Console.WriteLine($"- Total Capacity: {blocksInDorm.Sum(b => b.Capacity)}");
         }
     }
 }
